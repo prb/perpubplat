@@ -1,0 +1,67 @@
+This file explains how to build perpubplat.  This is not for the
+uninitiated or faint of heart, and I'll assume that you've got a good
+level of familiarity with Apache, Haskell, and standard *nix
+environments.  (That said, what you don't know is probably readily
+available by Googling.)
+
+PREREQUISITES
+
+You will need:
+
+- GHC 6.8.2 with additional libraries installed.
+
+- FastCGI libraries, installed somewhere your linker will know how to
+  find them.  Download the source from http://www.fastcgi.com/
+
+- The fastcgi library, installed the usual way via the cabal build.
+  Download it from
+  http://hackage.haskell.org/cgi-bin/hackage-scripts/package/fastcgi
+
+CONFIGURING
+
+All of the relevant configuration parameters are in the
+Blog.Constants module in the perpubplat library.  
+
+BUILDING
+
+The libraries and executables all build the standard cabal way, e.g.:
+
+$ cd perpubplat
+$ chmod +x Setup.lhs
+$ ./Setup.lhs configure
+$ ./Setup.lhs build
+$ sudo ./Setup.lhs install
+
+(Presuming that you want to install for all as opposed to just you.)
+
+The dependencies are as follows:
+
+- perpubplat_servlet depends on perpubplat
+- perpubplat_import depends on json and perpubplat
+
+RUNNING
+
+Point your favorite FastCGI web container at perpubplat.fcgi.  Some
+help selecting and configuring a container is available from here:
+
+http://mult.ifario.us/p/wiring-haskell-into-a-fastcgi-web-server
+
+Some sample Apache2 configuration fragments are included in the
+repository.
+
+NB: It is critically important that only one perpubplat.fcgi process
+is running at a time, so configure the web container accordingly.
+
+BOOTSTRAPPING CONTENT
+
+
+
+MISSING PIECES
+
+- Support for comments and associated workflow.
+- Fancier draft support.
+- Ping and other blog ecosystem niceties.
+
+QUESTIONS / COMMENTS / IMPROVEMENTS
+
+Feel free to send me an email (prb@mult.ifario.us) or a patch!

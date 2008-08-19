@@ -1,0 +1,39 @@
+name:			perpubplat
+version:		0.10.0
+copyright:		Copyright 2008 Multifarious, Inc.
+description:		Personal publishing (i.e., blog) platform.
+license:        	BSD3
+license-file:   	LICENSE
+author:			Paul Brown <prb@mult.ifario.us>
+homepage:		http://datapr0n.com/perpubplat
+maintainer:		Paul Brown <prb@mult.ifario.us>
+stability: 		alpha
+build-type:		Simple
+cabal-version:		>= 1.2
+
+Executable perpubplat.fcgi
+ build-depends:
+  base >= 2.0, parsec >= 2.0, xhtml >= 3000, haskell98, filepath >= 1.0,
+  old-time >= 1.0, containers, directory, utf8-string >= 0.2, HTTP >= 3001,
+  old-locale >= 1.0, json >= 0.3.3, network >= 2.1, time >= 1.1.2.0,
+  unix >= 2.3, fastcgi >= 3001.0.0, bytestring >= 0.9.0.1.1, pureMD5 >= 0.2.2, 
+  base64-string, hxt == 7.5, hslogger >= 1.0.5,
+  HDBC >= 1.1.4, HDBC-sqlite3 >= 1.1.4.0
+ main-is:
+  perpubplat.hs
+ hs-source-dirs:
+  src, servletsrc
+ ghc-options:
+  -O -Werror -fwarn-unused-binds -fwarn-unused-imports -fwarn-unused-matches -threaded
+
+Executable runtests
+ buildable:
+  False
+ build-depends:
+  HUnit
+ main-is:
+  runtests.hs
+ hs-source-dirs:
+  testsrc
+ ghc-options:
+  -O -Werror -fwarn-unused-binds -fwarn-unused-imports -fwarn-unused-matches -threaded
