@@ -1,43 +1,69 @@
-This file explains how to build perpubplat.  This is not for the
+This file explains how to build perpubplat. This is not for the
 uninitiated or faint of heart, and I'll assume that you've got a good
-level of familiarity with Apache, Haskell, and standard *nix
-environments.  (That said, what you don't know is probably readily
-available by Googling.)
+level of familiarity with Apache (or some other FastCGI container like
+lighttpd), Haskell, and standard *nix environments. (That said, what
+you don't know is probably readily available by Googling.)
+
+The "per" in perpubplat is for "personal", and I haven't gone out of
+my way to make perpubplat configurable or customizable beyond my
+immediate purposes. That said, I do intend to continue making
+enhancements and customizations. On my roadmap:
+
+- Better configuration (properties versus compiled in)
+- Draft management (AtomPub and web interface)
+- Threaded comments
+- HTTP referer management
+- Component management (turn off sidebar components, etc.)
+
 
 PREREQUISITES
 
 You will need:
 
-- GHC 6.8.2 with additional libraries installed.
+- GHC 6.8.3
+
+- cabal-install (0.5.2 or greater)
 
 - FastCGI libraries, installed somewhere your linker will know how to
   find them.  Download the source from http://www.fastcgi.com/
 
-- The fastcgi library, installed the usual way via the cabal build.
-  Download it from
-  http://hackage.haskell.org/cgi-bin/hackage-scripts/package/fastcgi
+I will track the latest released version of GHC, so expect a bump when
+new versions of GHC are released.
+
+
+GETTING SOURCE
+
+The git repository for perpubplat is hosted at github:
+
+  http://github.com/prb/perpubplat
+
+To clone the repository, do:
+
+  $ git clone git://github.com/prb/perpubplat.git
+
+Or you can ask github to make you a tarball.
+
 
 CONFIGURING
 
-All of the relevant configuration parameters are in the
-Blog.Constants module in the perpubplat library.  
+All of the relevant configuration parameters are in the Blog.Constants
+module in the perpubplat library.
+
 
 BUILDING
 
-The libraries and executables all build the standard cabal way, e.g.:
+The libraries and executables all build the standard cabal-install
+way, e.g.:
 
-$ cd perpubplat
-$ chmod +x Setup.lhs
-$ ./Setup.lhs configure
-$ ./Setup.lhs build
-$ sudo ./Setup.lhs install
+  $ cd perpubplat
+  $ cabal install
 
-(Presuming that you want to install for all as opposed to just you.)
+This places the perpubplat.fcgi executable in ~/.cabal/bin. If you
+want the executable in a different location:
 
-The dependencies are as follows:
+  $ cd perpubplat
+  $ cabal install --prefix=/path/to/other/location
 
-- perpubplat_servlet depends on perpubplat
-- perpubplat_import depends on json and perpubplat
 
 RUNNING
 
@@ -49,18 +75,17 @@ http://mult.ifario.us/p/wiring-haskell-into-a-fastcgi-web-server
 Some sample Apache2 configuration fragments are included in the
 repository.
 
-NB: It is critically important that only one perpubplat.fcgi process
-is running at a time, so configure the web container accordingly.
+*** NB: It is critically important that only one perpubplat.fcgi
+process is running at a time, so configure the web container
+accordingly. ***
+
 
 BOOTSTRAPPING CONTENT
 
+Bootstrapping content is explained in this blog post:
 
+	http://mult.ifario.us/p/hello-world-for-perpubplat
 
-MISSING PIECES
-
-- Support for comments and associated workflow.
-- Fancier draft support.
-- Ping and other blog ecosystem niceties.
 
 QUESTIONS / COMMENTS / IMPROVEMENTS
 
