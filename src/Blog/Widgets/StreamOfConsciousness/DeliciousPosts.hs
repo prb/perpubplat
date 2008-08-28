@@ -10,8 +10,6 @@ import Network.HTTP
 import Network.URI ( parseURI )
 import Data.Maybe ( fromJust )
 
-import qualified Codec.Binary.UTF8.String as UTF8
-
 delicious_period :: Int
 delicious_period = 360 * 10^6
 
@@ -21,7 +19,7 @@ start_delicious socc user = do { let req = Request ( fromJust . parseURI $ "http
                                ; return $ Worker socc p }
 
 handle_posts :: SoCController -> String -> IO ()
-handle_posts socc body = do { posts <- runX ( readString parse_opts ( UTF8.decodeString body ) >>> getItems )
+handle_posts socc body = do { posts <- runX ( readString parse_opts body >>> getItems )
                            ; commit socc posts }
 
 parse_opts = [(a_validate, v_0), (a_check_namespaces,v_1)]
