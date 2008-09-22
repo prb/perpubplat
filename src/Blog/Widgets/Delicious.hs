@@ -232,6 +232,10 @@ fetch_url_data url = do { L.infoM log_handle $ "Loading data for " ++ url
                         ; case res of
                             Right (Response (2,0,0) _ _ body) ->
                                 process_body body
+                            Right (r@(Response rc@(3,0,k) _ _ _)) | k == 1 || k == 2 ->
+                                do { L.infoM log_handle $ "Server returned a " ++ (show_rc rc)
+                                                  ++ " with new location " ++ (fromMaybe "" $ findHeader HdrLocation r)
+                                   ; return Nothing }
                             Right (Response rc reason _ _) ->
                                 do { L.errorM log_handle $ "Received " ++ (show_rc rc)
                                                 ++ " response code from delicious with reason " ++ reason

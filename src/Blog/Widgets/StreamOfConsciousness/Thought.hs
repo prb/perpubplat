@@ -16,7 +16,8 @@ icon c = image ! [ src $ C.blog_root ++ "/files/" ++ (show c) ++ "-icon.png"
 data Thought = Thought { channel :: Channel
                        , date :: String
                        , url :: String
-                       , txt :: String }
+                       , txt :: String
+                       , desc :: Maybe String }
 
                deriving ( Show, Read )
 
@@ -49,16 +50,20 @@ traverse_thoughts l_d (t:ts)
         d = take 10 $ date t
 
 to_html :: Thought -> Html
-to_html (Thought k d u t) | k == TwitterTweet || k == TwitterReply || k == Identica = concatHtml [ _a u time
-                                                                                                 , stringToHtml " "
-                                                                                                 , text ]
+to_html (Thought k d u t _) | k == TwitterTweet || k == TwitterReply || k == Identica
+                                      = concatHtml [ _a u time
+                                                   , stringToHtml " "
+                                                   , text ]
                           where
                             wrap st = (thespan ! [ theclass st ])
                             time_hunk = (take 9) . (drop 11)
                             time = (wrap "tweet_stamp") . stringToHtml $ time_hunk d
                             text = wrap "tweet_text" $ primHtml t
 
-to_html (Thought _ _ u t) = _a u (primHtml t)
+to_html (Thought _ _ u t Nothing) = _a u (primHtml t)
+to_html (Thought _ _ u t (Just d)) = _a u $ concatHtml [ _a u (primHtml t) 
+                                                       , stringToHtml " "
+                                                       , stringToHtml d ]
 
 -- "zip" two lists into an ordered list, eliminating duplicates
 merge :: (Eq a, Ord a) => [a] -> [a] -> [a]

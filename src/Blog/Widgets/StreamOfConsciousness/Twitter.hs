@@ -1,7 +1,7 @@
 module Blog.Widgets.StreamOfConsciousness.Twitter ( start_twitter_tweets, start_twitter_replies ) where
 
 import qualified Blog.Widgets.StreamOfConsciousness.Thought as T
-import Blog.Widgets.StreamOfConsciousness.Controller
+import Blog.Widgets.StreamOfConsciousness.Controller ( SoCController, Worker ( .. ), commit )
 
 import Data.List (isPrefixOf)
 import Text.ParserCombinators.Parsec
@@ -72,7 +72,7 @@ handle_tweets socc user body
             L.errorM (log_handle Tweet) err_message
 
 tweets_to_thoughts :: String -> JSValue -> [T.Thought]
-tweets_to_thoughts user v = map (\ (d,u,t) -> T.Thought T.TwitterTweet d u t) $ zip3 times urls texts
+tweets_to_thoughts user v = map (\ (d,u,t) -> T.Thought T.TwitterTweet d u t Nothing) $ zip3 times urls texts
     where
       texts = map (tweet_body_to_xhtml . uns) $ una $ v </> "text"
       times = map (convert_twitter_tstmp . uns) $ una $ v </> "created_at"
@@ -90,7 +90,7 @@ handle_replies socc user body
             L.errorM (log_handle Reply) err_message
 
 replies_to_thoughts :: String -> JSValue -> [T.Thought]
-replies_to_thoughts user v = map (\ (d,u,t) -> T.Thought T.TwitterReply d u t) $ zip3 times urls texts
+replies_to_thoughts user v = map (\ (d,u,t) -> T.Thought T.TwitterReply d u t Nothing) $ zip3 times urls texts
     where
       tweet_ids = map (show . unn) $ una $ v </> "id"
       users = uns_ $ v </> "user" </> "screen_name"

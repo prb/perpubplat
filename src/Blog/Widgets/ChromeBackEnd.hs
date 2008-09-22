@@ -34,6 +34,6 @@ boot m = do { f <- FlickrC.boot C.flickr_user C.flickr_api_key
             ; reply_worker <- start_twitter_replies socc C.twitter_user C.twitter_pass
             ; start_twitter_nanny socc [(tweet_worker,1), (reply_worker,1)] C.twitter_user C.twitter_pass
             ; start_delicious socc C.delicious_user
-            ; start_identica socc C.identica_user
-            ; start_google_reader socc google_user
+--            ; start_identica socc C.identica_user
+            ; start_google_reader socc
             ; return $ ChromeBackEnd f tc dc s ffd socc ht }

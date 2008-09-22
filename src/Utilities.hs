@@ -251,7 +251,7 @@ rfc850DateParser = do { long_day
 
 rfc1123DateParser :: P.Parser String
 rfc1123DateParser = do { short_day
-                       ; P.string ", "
+                       ; string ", "
                        ; day <- count 2 digit
                        ; space
                        ; month <- short_month
@@ -259,7 +259,8 @@ rfc1123DateParser = do { short_day
                        ; year <- count 4 digit
                        ; space
                        ; t <- hms
-                       ; string " GMT"
+                       ; space
+                       ; (try $ string "GMT") <|> (string "+0000")
                        ; return $ concat [ year, "-", (zpad $ show month), "-", day, "T"
                                          , t, "Z" ] }
 
@@ -280,7 +281,7 @@ short_day = P.choice $ map (try . P.string) [ "Sun", "Mon", "Tue", "Wed", "Thu"
                                             , "Fri","Sat" ]
 
 short_month :: P.Parser Int
-short_month = P.choice $ map (\(n,s) -> P.string s >> return n)
+short_month = P.choice $ map (\(n,s) -> (try . P.string $ s) >> return n)
               $ zip [1..12] [ "Jan", "Feb", "Mar", "Apr", "May", "Jun"
                             , "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" ]
 

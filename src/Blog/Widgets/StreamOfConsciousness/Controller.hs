@@ -7,6 +7,8 @@ import Control.Concurrent
 import Control.Concurrent.MVar
 import Control.Concurrent.Chan
 
+import qualified System.Log.Logger as L
+
 data Worker = Worker { soc_controller :: SoCController
                      , poller :: HttpPoller } 
 
@@ -58,9 +60,13 @@ update c snap = do { ok <- newEmptyMVar
 collision_delay :: Int
 collision_delay = 1000
 
+log_handle :: String
+log_handle = "StreamOfConsciousnessController"
+
 commit :: SoCController -> [T.Thought] -> IO ()
 commit socc new_items =
     do { snap <- get_data socc
+       ; L.infoM log_handle $ "Commit called for " ++ (show $ length new_items) ++ " items."
        ; let items' = take (max_size snap) $ T.merge new_items $ items snap
        ; let rendered' = T.thoughts_to_xhtml items' 
        ; let snap' = snap { items = items'
@@ -70,6 +76,7 @@ commit socc new_items =
              return ()
          else 
              do { threadDelay collision_delay
+                ; L.infoM log_handle $ "Collision detected; waiting."
                 ; commit socc new_items }
        }
 

@@ -1,7 +1,8 @@
 module Blog.Widgets.StreamOfConsciousness.TwitterNanny ( start_twitter_nanny ) where
 
 import qualified Control.Monad as CM
-import Blog.Widgets.StreamOfConsciousness.Controller
+import Blog.Widgets.StreamOfConsciousness.Controller ( Worker ( .. )
+                                                     , SoCController )
 
 import qualified System.Log.Logger as L
 
