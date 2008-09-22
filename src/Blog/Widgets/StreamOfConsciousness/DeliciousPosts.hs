@@ -19,4 +19,3 @@ start_delicious socc user = do { let req = Request ( fromJust . parseURI $ "http
 
 handle_posts :: SoCController -> String -> IO ()
 handle_posts socc = (commit socc) . (fromRSS2 Delicious)
-
