@@ -15,10 +15,17 @@ display_comments m page cmts
     = showHtml
       . concatHtml $ [ header << stylesheet
                      , body . (divid "container") . concatHtml $ [ navigation page cmts
+                                                                 , nuke page chunk
                                                                  , concatHtml ( map (render m page) chunk ) ] ]
     where
       chunk = paginate C.comment_view_size page cmts
-      
+     
+
+nuke :: Int -> [B.Item] -> Html
+nuke _ [] = noHtml
+nuke n items = ( p ! [ theclass "nuke_em" ] )
+               $ nuke_comments_form (map (show . B.internal_id) items) n
+ 
 navigation :: Int -> [B.Item] -> Html
 navigation _ [] = (p ! [ theclass "comment_nav" ] )
                   << stringToHtml "There are no comments waiting for review."                               
@@ -88,20 +95,44 @@ post_comment_form int_id n = ( form ! [ identifier $ "post-" ++ int_id
 delete_comment_form :: String -> Int -> Html
 delete_comment_form int_id n = ( form ! [ identifier $ "delete-" ++ int_id
                                         , method "post"
-                                        , action . U.delete_comment $ int_id] )
+                                        , action U.delete_comment] )
                                . concatHtml $ [ callback int_id n
                                               , input ! [ thetype "submit"
                                                         , value "Delete"
                                                         , theclass "delete_comment_submit" ] ]
 
 
+nuke_comments_form :: [String] -> Int -> Html
+nuke_comments_form int_ids n = ( form ! [ identifier $ "nuke"
+                                        , method "post"
+                                        , action U.delete_comments ] )
+                               . concatHtml $ [ callbacks int_ids n
+                                              , input ! [ thetype "submit"
+                                                        , value "Nuke All On Page"
+                                                        , theclass "nuke_comments_submit" ] ]
+
+callbacks :: [String] -> Int -> Html
+callbacks int_ids n = (hidden_int_ids int_ids)
+                      +++ (hidden_page n)
+
+hidden_int_id :: String -> Html
+hidden_int_id int_id =  input ! [ thetype "hidden"
+                                , name "id"
+                                , value int_id ]
+
+hidden_int_ids :: [String] -> Html
+hidden_int_ids = concatHtml . map (\x -> input ! [ thetype "hidden"
+                                             , name $ "id_" ++ x
+                                             , value x ])
+
+hidden_page :: Int -> Html
+hidden_page n = input ! [ thetype "hidden"
+                        , name "page"
+                        , value (show n) ]
+
 callback :: String -> Int -> Html
-callback int_id n = concatHtml [ input ! [ thetype "hidden"
-                                         , name "id"
-                                         , value int_id ]
-                               , input ! [ thetype "hidden"
-                                         , name "page"
-                                         , value (show n) ] ]
+callback int_id n = (hidden_int_id int_id) 
+                    +++ (hidden_page n)
 
 edit_comment_form :: String -> Html
 edit_comment_form int_id = ( form ! [ identifier $ "edit-" ++ int_id

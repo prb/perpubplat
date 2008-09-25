@@ -34,8 +34,11 @@ review_comment i = C.base_url ++ "/z/review-comment/" ++ i
 edit_comment_target :: Int -> String
 edit_comment_target i = C.base_url ++ "/x/edit-comment/" ++ (show i)
 
-delete_comment :: String -> String
-delete_comment _ = C.base_url ++ "/x/delete-comment"
+delete_comment :: String
+delete_comment = C.base_url ++ "/x/delete-comment"
+
+delete_comments :: String
+delete_comments = C.base_url ++ "/x/delete-comments" 
 
 comments :: String -> String
 comments p = p ++ "#comments"

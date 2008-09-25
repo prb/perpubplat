@@ -31,7 +31,8 @@ import Data.ByteString.Lazy ( copy )
 import Data.ByteString.Lazy.Char8 ( unpack, pack )
 import Data.Digest.Pure.MD5 ( md5 )
 import Control.Concurrent ( forkIO )
-import Data.Maybe (fromJust, isJust)
+import Data.Maybe (fromJust, isJust, catMaybes)
+import Data.List (isPrefixOf)
 import Control.Monad (when)
 import Network.FastCGI 
 import Network.URI ( uriPath )
@@ -61,6 +62,7 @@ serve con = do { u <- requestURI
 --                   (ReviewDraft n) -> review_drafts con n
                    PostComment -> post_comment con
                    DeleteComment -> delete_comment con
+                   DeleteComments -> delete_comments con
                    (AlterComment n) -> edit_comment con n
                    (Command c) -> perform_command con c }
 
@@ -155,6 +157,17 @@ delete_comment con = do { int_id <- readInput "id"
                             Just n ->
                                 liftIO $ CommentQ.delete_comment (comment_c con) n
                         ; redirect $ U.pending_comments pg }
+
+delete_comments :: Controllers -> CGI CGIResult
+delete_comments con = do { fields <- getInputNames
+                         ; ids <- (mapM readInput) . (filter (isPrefixOf "id_")) $ fields
+                         ; pg <- readInput "page"
+                         ; case (catMaybes ids) of
+                             [] -> 
+                                 liftIO $ return ()
+                             just_ids ->
+                                 liftIO $ CommentQ.delete_comments (comment_c con) just_ids
+                         ; redirect $ U.pending_comments pg }
 
 perform_command :: Controllers -> A.Action -> CGI CGIResult
 perform_command con c = case c of

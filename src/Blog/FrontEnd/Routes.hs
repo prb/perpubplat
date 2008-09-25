@@ -1,7 +1,8 @@
 -- | 
 module Blog.FrontEnd.Routes ( parse_uri
                             , Route ( XhtmlView, AtomFeed, NoSuchUri, Command, CommentFormView
-                                    , CommentSubmission, ReviewComments, PostComment, DeleteComment
+                                    , CommentSubmission, ReviewComments, PostComment
+                                    , DeleteComments, DeleteComment
                                     , AlterComment, ReviewComment
                                     , view, feed, uri, command, permatitle, page_n, int_id )
                             ) where
@@ -20,6 +21,7 @@ data Route = XhtmlView { view :: V.View }
            | ReviewComment { int_id :: Int }
            | PostComment
            | DeleteComment
+           | DeleteComments
            | AlterComment { int_id :: Int }
            | Command { command :: A.Action }
            | NoSuchUri { uri :: String }
@@ -36,6 +38,7 @@ uriParser = try pages
             <|> try submit_comment
             <|> try post_comment
             <|> try delete_comment
+            <|> try delete_comments
             <|> try edit_comment
             <|> do { s <- many anyChar
                    ; return $ NoSuchUri s }
@@ -83,9 +86,16 @@ post_comment = do { post_method
 
 delete_comment :: Parser Route
 delete_comment = do { post_method
-                  ; string "/x/delete-comment"
-                  ; eof
-                  ; return DeleteComment }
+                    ; string "/x/delete-comment"
+                    ; eof
+                    ; return DeleteComment }
+
+delete_comments :: Parser Route
+delete_comments = do { post_method
+                     ; string "/x/delete-comments"
+                     ; eof
+                     ; return DeleteComments }
+
 
 review_pending_comments :: Parser Route
 review_pending_comments = do { string "/z/review-comments"

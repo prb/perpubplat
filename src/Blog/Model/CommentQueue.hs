@@ -17,7 +17,7 @@ import qualified System.IO.Error as SIE
 import System.FilePath ( (</>) )
 import System.Directory ( removeFile, getDirectoryContents, doesFileExist )
 import Data.List ( isPrefixOf )
-import Control.Monad ( filterM, when )
+import Control.Monad ( filterM, when, foldM )
 import Control.Concurrent ( ThreadId, forkIO )
 import Control.Concurrent.MVar ( MVar, newMVar, newEmptyMVar, putMVar, takeMVar )
 import Control.Concurrent.Chan ( Chan, newChan,  writeChan, readChan )
@@ -39,6 +39,7 @@ data Request = AddComment { parent :: B.Item
              | EditComment { comment_id :: Int
                            , form_data :: CF.CommentForm }
              | DeleteComment { comment_id :: Int }
+             | DeleteComments { comment_ids :: [Int] }
              | FetchComment { index :: Int                  
                             , handback_item :: MVar (Maybe B.Item) }
              | FetchComments { start :: Int
@@ -63,6 +64,9 @@ loop c cq = do { req <- readChan c
                           ; loop c cq' }
                    (DeleteComment idx) ->
                        do { cq' <- delete_ cq idx
+                          ; loop c cq' }
+                   (DeleteComments idxs) ->
+                       do { cq' <- foldM delete_ cq idxs
                           ; loop c cq' }
                    (FetchComment idx res) ->
                        do { putMVar res $ M.lookup idx (comments cq)
@@ -135,6 +139,9 @@ add_comment cc i cf = (send cc) $ AddComment i cf
 
 delete_comment :: CommentController -> Int -> IO ()
 delete_comment cc idx = (send cc) $ DeleteComment idx
+
+delete_comments :: CommentController -> [Int] -> IO ()
+delete_comments cc idxs = (send cc) $ DeleteComments idxs
 
 empty :: IO CommentQueue
 empty = do { n <- newMVar 0
