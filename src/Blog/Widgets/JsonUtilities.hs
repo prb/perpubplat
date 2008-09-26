@@ -50,7 +50,7 @@ uno v = error $ "Can't un-object a non-JSOBject value: " ++ (show v)
 
 una :: JSValue -> [JSValue]
 una (JSArray a) = a
-una v = error $ "Can't un-array a non-JSArray value: " ++ (show v)
+una v = [v]
 
 uns_ :: JSValue -> [String]
 uns_ a@(JSArray _) = map uns $ una . flatten $ a
