@@ -61,9 +61,9 @@ to_html (Thought k d u t _) | k == TwitterTweet || k == TwitterReply || k == Ide
                             text = wrap "tweet_text" $ primHtml t
 
 to_html (Thought _ _ u t Nothing) = _a u (primHtml t)
-to_html (Thought _ _ u t (Just d)) = _a u $ concatHtml [ _a u (primHtml t) 
-                                                       , stringToHtml " "
-                                                       , stringToHtml d ]
+to_html (Thought _ _ u t (Just d)) = concatHtml [ _a u (primHtml t) 
+                                                , stringToHtml " "
+                                                , stringToHtml d ]
 
 -- "zip" two lists into an ordered list, eliminating duplicates
 merge :: (Eq a, Ord a) => [a] -> [a] -> [a]
