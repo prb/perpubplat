@@ -2,17 +2,11 @@ module Blog.Widgets.StreamOfConsciousness.XmlUtilities ( substituteEntities ) wh
 
 import qualified Data.Char as DC
 import Text.ParserCombinators.Parsec
-import qualified System.Log.Logger as L
-
-log_handle :: String
-log_handle = "XmlUtilities"
-
-substituteEntities :: String -> IO String
+substituteEntities :: String -> String
 substituteEntities s
     = case parse entityParser "" s of
-        Left err -> do { L.errorM log_handle $ "Unable to process entitles from malformed input string: " ++ s
-                      ; return s }
-        Right v -> return v
+        Left _ -> s
+        Right v -> v
 
 entityParser :: Parser String
 entityParser = many (try entity <|> anyChar)
