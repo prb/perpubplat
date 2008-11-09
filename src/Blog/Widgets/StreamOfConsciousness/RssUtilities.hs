@@ -2,6 +2,7 @@ module Blog.Widgets.StreamOfConsciousness.RssUtilities where
 
 import qualified Text.XML.Light as TXL
 import Utilities ( httpDateToIso8601 )
+import qualified Blog.Widgets.StreamOfConsciousness.XmlUtilities as XU
 import Blog.Widgets.StreamOfConsciousness.Thought ( Thought (..), Channel )
 
 rss2_item :: TXL.QName
@@ -61,9 +62,10 @@ fromRSS1Item ch e = Thought ch (textOf dc_date e) (textOf rss1_link e) (textOf r
 textOf :: TXL.QName -> TXL.Element -> String
 textOf q e = case (TXL.findElement q e) of
                Nothing -> ""
-               Just e' -> TXL.strContent e'
+               Just e' -> XU.substituteEntities . TXL.strContent $ e'
 
 maybeTextOf :: TXL.QName -> TXL.Element -> Maybe String
 maybeTextOf q e = case (TXL.findElement q e) of
                     Nothing -> Nothing
-                    Just e' -> Just . TXL.strContent $ e'
+                    Just e' -> Just . XU.substituteEntities . TXL.strContent $ e'
+
