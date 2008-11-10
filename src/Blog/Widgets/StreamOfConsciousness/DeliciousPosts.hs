@@ -20,8 +20,7 @@ start_delicious socc user = do { let req = Request ( fromJust . parseURI $ "http
                                ; return $ Worker socc p }
 
 handle_posts :: SoCController -> String -> IO ()
-handle_posts socc = (commit socc) . import qualified Blog.Widgets.StreamOfConsciousness.XmlUtilities as XU
-map unescape . (fromRSS2 Delicious)
+handle_posts socc = (commit socc) . map unescape . (fromRSS2 Delicious)
 
 unescape :: Thought -> Thought
 unescape t = case desc t of
