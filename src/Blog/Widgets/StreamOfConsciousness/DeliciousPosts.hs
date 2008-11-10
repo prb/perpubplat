@@ -5,6 +5,8 @@ import Blog.Widgets.StreamOfConsciousness.Controller
 import Blog.Widgets.StreamOfConsciousness.RssUtilities (fromRSS2)
 import Blog.BackEnd.HttpPoller
 
+import qualified Blog.Widgets.StreamOfConsciousness.XmlUtilities as XU
+
 import Network.HTTP
 import Network.URI ( parseURI )
 import Data.Maybe ( fromJust )
@@ -18,4 +20,9 @@ start_delicious socc user = do { let req = Request ( fromJust . parseURI $ "http
                                ; return $ Worker socc p }
 
 handle_posts :: SoCController -> String -> IO ()
-handle_posts socc = (commit socc) . (fromRSS2 Delicious)
+handle_posts socc = (commit socc) . map unescape . (fromRSS2 Delicious)
+
+unescape :: Thought -> Thought
+unescape t = case desc t of
+               Nothing -> t
+               Just s -> t { desc = Just . XU.substituteEntities $ s }
