@@ -216,12 +216,12 @@ url_fragment = "http://badges.del.icio.us/feeds/json/url/data?hash="
 bookmarks_fragment :: String
 bookmarks_fragment = "http://del.icio.us/feeds/json/"
 
-request_for_bookmarks :: String -> Request
+request_for_bookmarks :: String -> Request String
 request_for_bookmarks user = Request ( fromJust . parseURI $
                                        bookmarks_fragment ++ user ++ "?raw" )
                              GET [] ""
 
-request_for_url_data :: String -> Request
+request_for_url_data :: String -> Request String
 request_for_url_data u = Request ( fromJust . parseURI $
                                    url_fragment ++ (show . md5 . pack $ u ) )
                          GET [] ""

@@ -96,7 +96,7 @@ compose_uri b a = fromJust . parseURI $ b ++ "?" ++ (conc a)
       to_nvp = \(x,y) -> x ++ "=" ++ (urlEncode y)
       conc = concat . (intersperse "&") . (map to_nvp)
 
-flickr_people_getPublicPhotos_req :: String -> String -> Request
+flickr_people_getPublicPhotos_req :: String -> String -> Request String
 flickr_people_getPublicPhotos_req user api_key = Request url GET [ Header HdrAcceptCharset "utf-8" ] ""
     where
       url = compose_uri flickr_service_url [ ("api_key", api_key)

@@ -30,7 +30,7 @@ start_twitter_nanny socc kids user password = do { let req = build_request user 
                                                  ; p <- start_poller log_handle req (handle_throttle kids) nanny_period
                                                  ; return $ Worker socc p }
 
-build_request :: String -> String -> Request
+build_request :: String -> String -> Request String
 build_request user password = Request uri GET heads ""
     where
       uri = fromJust $ parseURI $ "http://twitter.com/account/rate_limit_status.json"

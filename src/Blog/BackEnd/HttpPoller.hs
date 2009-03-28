@@ -15,14 +15,17 @@ import Control.Concurrent.MVar ( MVar, readMVar, swapMVar, newMVar )
 import Control.Monad as CM
 import Utilities ( elapsed_hundreths )
 
+type StrRequest = Request String
+type StrResponse = Response String
+
 data HttpPoller = HttpPoller { name :: String
-                             , base_request :: Request
+                             , base_request :: StrRequest
                              , handle_response :: String -> IO ()
                              , delay_holder :: MVar Int
                              , p_tid :: ThreadId }
 
 
-start_poller :: String -> Request -> (String -> IO ()) -> Int -> IO HttpPoller
+start_poller :: String -> StrRequest -> (String -> IO ()) -> Int -> IO HttpPoller
 start_poller n b hdlr p = do { tid <- myThreadId
                              ; del <- newMVar p
                              ; let pre_h = HttpPoller n b hdlr del tid
@@ -72,7 +75,7 @@ poller_loop p me mlm =
                 }
        }
 
-handle_ :: HttpPoller -> Maybe String -> Maybe String -> Response -> IO (Maybe String, Maybe String, Bool)
+handle_ :: HttpPoller -> Maybe String -> Maybe String -> StrResponse -> IO (Maybe String, Maybe String, Bool)
 handle_ p _ _ r@(Response (2,0,0) _ _ body) =
     do { L.infoM (name p) $ "Server returned a 200; processing response body."
        ; handle_response p $ body 
@@ -104,11 +107,11 @@ handle_ p me mlm (Response rc reasn _ _) =
        ; return (me, mlm, True)
        }
 
-add_maybe :: HeaderName -> Maybe String -> Request -> Request
+add_maybe :: HeaderName -> Maybe String -> StrRequest -> StrRequest
 add_maybe _ Nothing req = req
 add_maybe h (Just s) req = req { rqHeaders = (Header h s):(rqHeaders req) }
 
-logtime :: Request -> ClockTime -> ClockTime -> String
+logtime :: StrRequest -> ClockTime -> ClockTime -> String
 logtime req ct_stop ct_start = "Took " ++ (elapsed_hundreths ct_stop ct_start) ++ " seconds to perform "
                                ++ (show . rqMethod $ req ) ++ " "
                                ++ (show . rqURI $ req )

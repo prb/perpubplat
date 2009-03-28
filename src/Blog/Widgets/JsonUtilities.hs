@@ -21,7 +21,7 @@ blank :: JSValue
 blank = JSString $ toJSString ""
 
 zero :: JSValue
-zero = JSRational 0
+zero = JSRational False 0
 
 empty_object :: JSValue
 empty_object = JSObject $ toJSObject []
@@ -31,17 +31,17 @@ empty_array = JSArray []
 
 unn_ :: JSValue -> [Int]
 unn_ a@(JSArray _) = map unn $ una . flatten $ a
-unn_ r@(JSRational _) = [ unn r ]
+unn_ r@(JSRational _ _) = [ unn r ]
 unn_ v = error $ "Can't un-number-array a non-number-array value: " ++ (show v)
 
 unnWithDefault :: Int -> JSValue -> Int
-unnWithDefault _ j@(JSRational _) = unn j
+unnWithDefault _ j@(JSRational _ _) = unn j
 unnWithDefault i (JSArray [j]) = unnWithDefault i j
 unnWithDefault i _ = i
 
 unn :: JSValue -> Int
-unn (JSRational n) = fromInteger . round $ n
-unn (JSArray [n@(JSRational _)]) = unn n
+unn (JSRational _ n) = fromInteger . round $ n
+unn (JSArray [n@(JSRational _ _)]) = unn n
 unn v = error $ "Can't un-number a non-JSRational value: " ++ (show v)
 
 uno :: JSValue -> [(String,JSValue)]
@@ -55,7 +55,7 @@ una v = [v]
 uns_ :: JSValue -> [String]
 uns_ a@(JSArray _) = map uns $ una . flatten $ a
 uns_ (JSString s) = [fromJSString s]
-uns_ n@(JSRational _) = [show . unn $ n]
+uns_ n@(JSRational _ _) = [show . unn $ n]
 uns_ v = error $ "Can't un-string-array a non-JSArray value: " ++ (show v)
 
 uns :: JSValue -> String

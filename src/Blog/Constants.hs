@@ -103,3 +103,6 @@ delicious_user = "" -- fill yours in
 
 logfile :: String
 logfile = content_root ++ "/logs/perpubplat.log"
+
+google_user :: String
+google_user = "" -- fill yours in

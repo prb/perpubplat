@@ -53,7 +53,7 @@ start_twitter kind socc user password
                twitter_period
          ; return $ Worker socc p }
 
-build_request :: Kind -> String -> String -> Request
+build_request :: Kind -> String -> String -> Request String
 build_request kind user password = Request uri GET heads ""
     where
       uri = fromJust $ parseURI $ "http://twitter.com/statuses/"
