@@ -106,3 +106,6 @@ logfile = content_root ++ "/logs/perpubplat.log"
 
 google_user :: String
 google_user = "" -- fill yours in
+
+google_analytics_identifier :: Maybe String
+google_analytics_identifier = Nothing -- fill yours in
