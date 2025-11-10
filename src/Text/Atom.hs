@@ -186,7 +186,7 @@ atom_link_ :: Bool -- ^ whether or not the feed is for the current document.
       -> String -- ^ the URL
       -> String -- ^ the title for the feed
       -> Html () -- ^ the link
-atom_link_ alt u t = Lucid.link_ [ rel_ feed_kind, type_ "application/atom+xml"
+atom_link_ alt u t = Lucid.link_ [ rel_ feed_kind, type_ (T.pack "application/atom+xml")
                                   , href_ (T.pack u), title_ (T.pack t) ]
     where
       feed_kind = T.pack $ if alt then "feed alternate" else "feed"

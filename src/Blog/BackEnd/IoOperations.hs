@@ -102,11 +102,11 @@ load_content :: FilePath -> IO (Either LoadError B.Item)
 load_content = load_with log_handle EP.item_from_string (\g -> C.content_storage_dir </> g </> "content.ppp")
 
 load_with :: String -> (String -> String -> Either (String, String) B.Item) -> (String -> String) -> FilePath -> IO (Either LoadError B.Item)
-load_with lh parser base f = do { file <- CE.try $ readFile' $ base f
-                                ; case file of 
-                                    Right content -> 
+load_with lh parser base f = do { file <- (CE.try $ readFile' $ base f :: IO (Either CE.SomeException String))
+                                ; case file of
+                                    Right content ->
                                         do { let d = parser f $! content
-                                           ; case d of 
+                                           ; case d of
                                                Right i ->
                                                    return $ Right i
                                                Left (p,e) ->
@@ -114,7 +114,7 @@ load_with lh parser base f = do { file <- CE.try $ readFile' $ base f
                                                       ; log_load_error_ lh err
                                                       ; return $ Left err }
                                            }
-                                    Left ex -> 
+                                    Left (ex :: CE.SomeException) ->
 
                                         do { let err = LoadError (base f) (show ex)
                                            ; log_load_error_ lh err
