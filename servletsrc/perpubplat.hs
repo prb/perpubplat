@@ -39,6 +39,7 @@ import Control.Monad (when)
 import Network.Wai
 import Network.Wai.Handler.Warp (run)
 import Network.HTTP.Types
+import Network.HTTP.Types.Header (hETag)
 import Network.URI ( uriPath )
 
 data Controllers = Controllers { model :: H.Holder B.Model

@@ -15,7 +15,7 @@ import Data.Maybe ( fromJust )
 import Data.List ( elemIndex, intersperse )
 import Data.Aeson (Value(..))
 
-import Lucid (Html(), span_, class_, toHtmlRaw, renderText)
+import Lucid (span_, class_, toHtmlRaw, renderText)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 
