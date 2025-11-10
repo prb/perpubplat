@@ -3,11 +3,12 @@ module Blog.Widgets.JsonUtilities where
 
 import Data.Aeson
 import Data.Aeson.Types (Parser)
+import qualified Data.Aeson.KeyMap as KM
+import qualified Data.Aeson.Key as K
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS
-import qualified Data.HashMap.Strict as HM
 import qualified Data.Vector as V
 import Data.Scientific (Scientific, toRealFloat, toBoundedInteger)
 import qualified Codec.Binary.UTF8.String as UTF8
@@ -18,13 +19,13 @@ parse_utf8_json s = eitherDecode $ LBS.pack $ UTF8.decodeString s
 
 -- Path operator: extract value(s) by key
 (</>) :: Value -> String -> Value
-(Object o) </> s = flatten $ Array $ V.fromList $ map snd $ filter ((== T.pack s) . fst) $ HM.toList o
+(Object o) </> s = flatten $ Array $ V.fromList $ map snd $ filter ((== K.fromText (T.pack s)) . fst) $ KM.toList o
 (Array a) </> s = flatten $ Array $ V.map (\v -> v </> s) a
 _ </> _ = Null
 
 -- Flatten single-element arrays
 flatten :: Value -> Value
-flatten (Object o) = Object $ HM.map flatten o
+flatten (Object o) = Object $ KM.map flatten o
 flatten (Array v) | V.length v == 1 = flatten $ V.head v
 flatten (Array v) = Array $ V.map flatten v
 flatten y = y
@@ -37,7 +38,7 @@ zero :: Value
 zero = Number 0
 
 empty_object :: Value
-empty_object = Object HM.empty
+empty_object = Object KM.empty
 
 empty_array :: Value
 empty_array = Array V.empty
@@ -64,7 +65,7 @@ unnWithDefault i _ = i
 
 -- Extract object as key-value pairs
 uno :: Value -> [(String, Value)]
-uno (Object o) = map (\(k, v) -> (T.unpack k, v)) $ HM.toList o
+uno (Object o) = map (\(k, v) -> (T.unpack (K.toText k), v)) $ KM.toList o
 uno v = error $ "Can't un-object a non-Object value: " ++ (show v)
 
 -- Extract array
