@@ -6,9 +6,8 @@ import Blog.Widgets.StreamOfConsciousness.Controller ( Worker ( .. )
 
 import qualified System.Log.Logger as L
 
-import Network.HTTP
-import Network.HTTP.Headers
-import Network.URI ( parseURI )
+import Network.HTTP.Client
+import qualified Data.ByteString.Char8 as BS
 import Data.Maybe ( fromJust )
 
 import Text.JSON
@@ -30,11 +29,12 @@ start_twitter_nanny socc kids user password = do { let req = build_request user 
                                                  ; p <- start_poller log_handle req (handle_throttle kids) nanny_period
                                                  ; return $ Worker socc p }
 
-build_request :: String -> String -> Request String
-build_request user password = Request uri GET heads ""
-    where
-      uri = fromJust $ parseURI $ "http://twitter.com/account/rate_limit_status.json"
-      heads = [ Header HdrAuthorization $ (++) "Basic " $ B64.encode $ user ++ ":" ++ password ]
+build_request :: String -> String -> Request
+build_request user password =
+    let url = "http://twitter.com/account/rate_limit_status.json"
+        authValue = "Basic " ++ B64.encode (user ++ ":" ++ password)
+    in (fromJust $ parseRequest url)
+       { requestHeaders = [(BS.pack "Authorization", BS.pack authValue)] }
 
 handle_throttle :: [(Worker,Int)] -> String -> IO ()
 handle_throttle ws body = case parse_utf8_json body of

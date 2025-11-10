@@ -8,9 +8,8 @@ import Text.ParserCombinators.Parsec
 
 import qualified System.Log.Logger as L
 
-import Network.HTTP
-import Network.HTTP.Headers
-import Network.URI ( parseURI )
+import Network.HTTP.Client
+import qualified Data.ByteString.Char8 as BS
 import Data.Maybe ( fromJust )
 import Data.List ( elemIndex, intersperse )
 
@@ -53,12 +52,12 @@ start_twitter kind socc user password
                twitter_period
          ; return $ Worker socc p }
 
-build_request :: Kind -> String -> String -> Request String
-build_request kind user password = Request uri GET heads ""
-    where
-      uri = fromJust $ parseURI $ "http://twitter.com/statuses/"
-            ++ (method kind) ++ ".json"
-      heads = [ Header HdrAuthorization $ (++) "Basic " $ B64.encode $ user ++ ":" ++ password ]
+build_request :: Kind -> String -> String -> Request
+build_request kind user password =
+    let url = "http://twitter.com/statuses/" ++ (method kind) ++ ".json"
+        authValue = "Basic " ++ B64.encode (user ++ ":" ++ password)
+    in (fromJust $ parseRequest url)
+       { requestHeaders = [(BS.pack "Authorization", BS.pack authValue)] }
 
 handle_tweets :: SoCController -> String -> String -> IO ()
 handle_tweets socc user body

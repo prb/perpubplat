@@ -6,8 +6,11 @@ import Blog.Widgets.JsonUtilities
 
 import qualified System.Log.Logger as L
 
-import Network.HTTP
-import Network.URI
+import Network.HTTP.Client
+import Network.HTTP.Client.TLS (tlsManagerSettings)
+import Network.HTTP.Types.Status
+import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Lazy.Char8 as LBS
 import Text.JSON
 import Data.Digest.Pure.MD5
 import Data.List ( intersperse )
@@ -15,6 +18,7 @@ import Data.List ( intersperse )
 import Control.Concurrent.MVar
 import Control.Concurrent.Chan
 import Control.Concurrent ( forkIO, myThreadId, ThreadId, threadDelay, killThread )
+import Control.Exception (catch)
 import Data.ByteString.Lazy.Char8 ( pack )
 import qualified Data.Map as M
 import qualified Data.IntSet as S
@@ -214,29 +218,31 @@ url_fragment = "http://badges.del.icio.us/feeds/json/url/data?hash="
 bookmarks_fragment :: String
 bookmarks_fragment = "http://del.icio.us/feeds/json/"
 
-request_for_bookmarks :: String -> Request String
-request_for_bookmarks user = Request ( fromJust . parseURI $
-                                       bookmarks_fragment ++ user ++ "?raw" )
-                             GET [] ""
+request_for_bookmarks :: String -> Request
+request_for_bookmarks user = fromJust $ parseRequest $
+                                       bookmarks_fragment ++ user ++ "?raw"
 
-request_for_url_data :: String -> Request String
-request_for_url_data u = Request ( fromJust . parseURI $
-                                   url_fragment ++ (show . md5 . pack $ u ) )
-                         GET [] ""
+request_for_url_data :: String -> Request
+request_for_url_data u = fromJust $ parseRequest $
+                                   url_fragment ++ (show . md5 . pack $ u )
 
 fetch_url_data :: String -> IO (Maybe DeliciousRecord)
 fetch_url_data url = do { L.infoM log_handle $ "Loading data for " ++ url
-                        ; res <- simpleHTTP . request_for_url_data $ url
+                        ; mgr <- newManager tlsManagerSettings
+                        ; res <- (Right <$> httpLbs (request_for_url_data url) mgr)
+                                 `catch` (\(e :: HttpException) -> return $ Left e)
                         ; case res of
-                            Right (Response (2,0,0) _ _ body) ->
-                                process_body body
-                            Right (r@(Response rc@(3,0,k) _ _ _)) | k == 1 || k == 2 ->
-                                do { L.infoM log_handle $ "Server returned a " ++ (show_rc rc)
-                                                  ++ " with new location " ++ (fromMaybe "" $ findHeader HdrLocation r)
+                            Right resp | statusCode (responseStatus resp) == 200 ->
+                                process_body $ LBS.unpack $ responseBody resp
+                            Right resp | statusCode (responseStatus resp) `elem` [301, 302] ->
+                                do { let location = lookup (BS.pack "Location") (responseHeaders resp)
+                                   ; L.infoM log_handle $ "Server returned a " ++ (show $ statusCode $ responseStatus resp)
+                                                  ++ " with new location " ++ (maybe "" BS.unpack location)
                                    ; return Nothing }
-                            Right (Response rc reason _ _) ->
-                                do { L.errorM log_handle $ "Received " ++ (show_rc rc)
-                                                ++ " response code from delicious with reason " ++ reason
+                            Right resp ->
+                                do { let status = responseStatus resp
+                                   ; L.errorM log_handle $ "Received " ++ (show $ statusCode status)
+                                                ++ " response code from delicious with reason " ++ (BS.unpack $ statusMessage status)
                                    ; return Nothing }
                             Left err ->
                                 do { L.errorM log_handle $ "Error connecting to " ++ (show url) ++ ": " ++ (show err)

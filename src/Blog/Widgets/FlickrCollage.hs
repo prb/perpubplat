@@ -8,9 +8,8 @@ import qualified System.Log.Logger as L
 
 import Random
 
-import Network.HTTP
-import Network.HTTP.Headers
-import Network.URI
+import Network.HTTP.Client
+import qualified Data.ByteString.Char8 as BS
 import Text.JSON
 import Data.Maybe
 import Control.Concurrent.MVar
@@ -96,15 +95,16 @@ compose_uri b a = fromJust . parseURI $ b ++ "?" ++ (conc a)
       to_nvp = \(x,y) -> x ++ "=" ++ (urlEncode y)
       conc = concat . (intersperse "&") . (map to_nvp)
 
-flickr_people_getPublicPhotos_req :: String -> String -> Request String
-flickr_people_getPublicPhotos_req user api_key = Request url GET [ Header HdrAcceptCharset "utf-8" ] ""
-    where
-      url = compose_uri flickr_service_url [ ("api_key", api_key)
-                                           , ("format","json")
-                                           , ("nojsoncallback","1")
-                                           , ("method","flickr.people.getPublicPhotos")
-                                           , ("per_page",show photo_count)
-                                           , ("user_id",user) ]
+flickr_people_getPublicPhotos_req :: String -> String -> Request
+flickr_people_getPublicPhotos_req user api_key =
+    let url = compose_uri flickr_service_url [ ("api_key", api_key)
+                                             , ("format","json")
+                                             , ("nojsoncallback","1")
+                                             , ("method","flickr.people.getPublicPhotos")
+                                             , ("per_page",show photo_count)
+                                             , ("user_id",user) ]
+    in (fromJust $ parseRequest url)
+       { requestHeaders = [(BS.pack "Accept-Charset", BS.pack "utf-8")] }
 
 to_xhtml :: String -> FlickrPhoto -> Html
 to_xhtml user fp = _a (photo_page_url user fp) ( image ! [ src (image_url fp)

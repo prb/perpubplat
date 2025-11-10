@@ -7,15 +7,14 @@ import Blog.BackEnd.HttpPoller
 
 import qualified Blog.Widgets.StreamOfConsciousness.XmlUtilities as XU
 
-import Network.HTTP
-import Network.URI ( parseURI )
+import Network.HTTP.Client
 import Data.Maybe ( fromJust )
 
 delicious_period :: Int
 delicious_period = 360 * 10^6
 
 start_delicious :: SoCController -> String -> IO Worker
-start_delicious socc user = do { let req = Request ( fromJust . parseURI $ "http://feeds.delicious.com/v2/rss/" ++ user ) GET [] ""
+start_delicious socc user = do { let req = fromJust $ parseRequest $ "http://feeds.delicious.com/v2/rss/" ++ user
                                ; p <- start_poller "DeliciousPosts" req (handle_posts socc) delicious_period
                                ; return $ Worker socc p }
 

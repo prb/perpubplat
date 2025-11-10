@@ -7,8 +7,7 @@ import Blog.BackEnd.HttpPoller
 import Blog.Widgets.StreamOfConsciousness.RssUtilities ( textOf, maybeTextOf )
 
 import qualified Text.XML.Light as TXL
-import Network.HTTP
-import Network.URI ( parseURI )
+import Network.HTTP.Client
 import Data.Maybe ( fromJust )
 
 import qualified Codec.Binary.UTF8.String as UTF8
@@ -17,7 +16,7 @@ google_reader_period :: Int
 google_reader_period = 240 * 10^6
 
 start_google_reader :: SoCController -> IO Worker
-start_google_reader socc = do { let req = Request ( fromJust . parseURI $ "http://www.google.com/reader/public/atom/user/" ++ google_user ++ "/state/com.google/broadcast" ) GET [] ""
+start_google_reader socc = do { let req = fromJust $ parseRequest $ "http://www.google.com/reader/public/atom/user/" ++ google_user ++ "/state/com.google/broadcast"
                                    ; p <- start_poller "GoogleReaderSharedItems" req (handle_posts socc) google_reader_period
                                    ; return $ Worker socc p }
 

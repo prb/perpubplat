@@ -4,9 +4,8 @@ import Text.ParserCombinators.Parsec
 
 import qualified Debug.Trace as D
 
-import Network.HTTP
-import Network.HTTP.Headers
-import Network.URI ( parseURI )
+import Network.HTTP.Client
+import qualified Data.ByteString.Char8 as BS
 import Data.Maybe ( fromJust )
 import Data.List ( elemIndex, intersperse, isPrefixOf )
 import Text.XHtml.Strict
@@ -45,11 +44,11 @@ loop rc xh = do { req <- readChan rc
                         loop rc xh' }
 
 build_tweet_request :: String -> String -> Int -> Request
-build_tweet_request user password count = Request uri GET heads ""
-    where 
-      uri = fromJust $ parseURI $ "http://twitter.com/statuses/user_timeline/"
-            ++ user ++ ".json?count=" ++ (show count)
-      heads = [ Header HdrAuthorization $ (++) "Basic " $ B64.encode $ user ++ ":" ++ password ]
+build_tweet_request user password count =
+    let url = "http://twitter.com/statuses/user_timeline/" ++ user ++ ".json?count=" ++ (show count)
+        authValue = "Basic " ++ B64.encode (user ++ ":" ++ password)
+    in (fromJust $ parseRequest url)
+       { requestHeaders = [(BS.pack "Authorization", BS.pack authValue)] }
 
 handle_body :: Chan TRequest -> String -> IO ()
 handle_body tc body = do { case parse_json body of
