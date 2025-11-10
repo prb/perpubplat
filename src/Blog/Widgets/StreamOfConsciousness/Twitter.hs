@@ -13,7 +13,8 @@ import qualified Data.ByteString.Char8 as BS
 import Data.Maybe ( fromJust )
 import Data.List ( elemIndex, intersperse )
 
-import qualified Text.XHtml.Strict as X
+import qualified Lucid as L
+import qualified Data.Text as T
 
 import qualified Codec.Binary.Base64.String as B64
 

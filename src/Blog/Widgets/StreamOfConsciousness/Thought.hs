@@ -1,6 +1,8 @@
 module Blog.Widgets.StreamOfConsciousness.Thought where
 
-import Text.XHtml.Strict
+import Lucid
+import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
 import Data.List
 
 import Blog.FrontEnd.ContentAtoms

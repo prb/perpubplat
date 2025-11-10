@@ -26,44 +26,42 @@ import qualified System.Posix as SP
 import qualified Data.Time.Clock.POSIX as DTCP
 
 import Blog.FrontEnd.ContentAtoms
-import Text.XHtml.Strict
+import Lucid
+import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
 
 log_handle :: String
 log_handle = "DeliciousLinks"
 
-get_chrome :: Controller -> B.Model -> B.Item -> IO Html
+get_chrome :: Controller -> B.Model -> B.Item -> IO (Html ())
 get_chrome dc _ i = do { (_,h) <- get_record dc $ B.internal_id i
                        ; return $ h }
 
-to_html :: DeliciousRecord -> B.Model -> B.Item -> Html
-to_html dr m i = thediv ! [ theclass "delicious_chrome" ] $ concatHtml
-                 [ if dr == empty_record then
-                       noHtml
-                   else
-                       p $ concatHtml [ _at (url_for_bookmark dr) "Bookmarked"
-                                      , stringToHtml $ " by " ++ (show $ total_posts dr)
-                                                         ++ ( if total_posts dr > 1 then
-                                                                  " people. "
-                                                              else 
-                                                                  " person. " )
-                                      , if 0 /= (length $ top_tags dr) then
-                                            concatHtml . intersperse (stringToHtml ", ") $ map tag_link_with_count (top_tags dr)
-                                        else 
-                                            noHtml
-                                      ]                
-                 , p $ concatHtml [ _at (post_to_delicious plink title) "Bookmark" 
-                                  , stringToHtml " this post on "
-                                  , delicious_img
-                                  , _at "http://del.icio.us" "del.icio.us" 
-                                  , stringToHtml "." ]
-                 ]
-    where
-      plink = B.permalink m i
-      title = B.title i
+to_html :: DeliciousRecord -> B.Model -> B.Item -> Html ()
+to_html dr m i = div_ [class_ "delicious_chrome"] $ do
+    if dr == empty_record
+        then mempty
+        else p_ $ do
+            _at (url_for_bookmark dr) "Bookmarked"
+            toHtml $ " by " ++ (show $ total_posts dr)
+                  ++ (if total_posts dr > 1 then " people. " else " person. ")
+            if 0 /= (length $ top_tags dr)
+                then mconcat $ intersperse (toHtml (", " :: String)) $ map tag_link_with_count (top_tags dr)
+                else mempty
+    p_ $ do
+        _at (post_to_delicious plink title) "Bookmark"
+        toHtml (" this post on " :: String)
+        delicious_img
+        _at "http://del.icio.us" "del.icio.us"
+        toHtml ("." :: String)
+  where
+    plink = B.permalink m i
+    title = B.title i
 
-tag_link_with_count :: (String, Int) -> Html
-tag_link_with_count (t,c) = concatHtml [ _at (link_for_tag t) t
-                                       , stringToHtml $ " (" ++ (show c) ++ ")" ]
+tag_link_with_count :: (String, Int) -> Html ()
+tag_link_with_count (t,c) = do
+    _at (link_for_tag t) t
+    toHtml $ " (" ++ (show c) ++ ")"
 
 link_for_tag :: String -> String
 link_for_tag t = "http://del.icio.us/popular/" ++ (urlEncode t)
@@ -76,10 +74,10 @@ strip = id
 url_for_bookmark :: DeliciousRecord -> String
 url_for_bookmark dr = "http://del.icio.us/url/" ++ ( hash dr )
 
-delicious_img :: Html
-delicious_img = image ! [ src "http://images.del.icio.us/static/img/delicious.small.gif"
-                        , alt "del.icio.us logo"
-                        , theclass "delicious_logo_badge" ]
+delicious_img :: Html ()
+delicious_img = img_ [ src_ "http://images.del.icio.us/static/img/delicious.small.gif"
+                     , alt_ "del.icio.us logo"
+                     , class_ "delicious_logo_badge" ]
 
 data DeliciousRecord = DeliciousRecord { hash :: String
                                        , top_tags :: [(String,Int)]
@@ -111,12 +109,12 @@ boot_s dc m = do { c <- newChan
 data Controller = Controller { d_request_channel :: Chan DRequest
                              , dc_tid :: ThreadId }
 
-type DeliciousState = M.Map Int (DeliciousRecord,Html)
+type DeliciousState = M.Map Int (DeliciousRecord, Html ())
 
-data DRequest = GetDRecord { callback :: MVar (DeliciousRecord,Html)
+data DRequest = GetDRecord { callback :: MVar (DeliciousRecord, Html ())
                            , item_id :: Int }
               | PutDRecord { item_id :: Int
-                           , record :: (DeliciousRecord,Html)}
+                           , record :: (DeliciousRecord, Html ())}
 
 boot_dc :: IO Controller
 boot_dc = do { c <- newChan
@@ -129,12 +127,12 @@ boot_dc = do { c <- newChan
 update_model :: Scheduler -> B.Model -> IO ()
 update_model s m = writeChan ( s_request_channel s ) $ UpdateModel m
 
-get_record :: Controller -> Int -> IO (DeliciousRecord,Html)
+get_record :: Controller -> Int -> IO (DeliciousRecord, Html ())
 get_record dc i = do { cb <- newEmptyMVar
                      ; writeChan ( d_request_channel dc ) $ GetDRecord cb i
                      ; takeMVar cb }
 
-put_record :: Controller -> Int -> (DeliciousRecord,Html) -> IO ()
+put_record :: Controller -> Int -> (DeliciousRecord, Html ()) -> IO ()
 put_record dc i (r,h) = writeChan ( d_request_channel dc) $ PutDRecord i (r,h)
 
 empty_record :: DeliciousRecord
@@ -144,7 +142,7 @@ dc_loop :: Controller -> DeliciousState -> IO ()
 dc_loop dc ds = do { req <- readChan $ d_request_channel dc
                    ; case req of
                        GetDRecord cb ii ->
-                           do { putMVar cb $ M.findWithDefault (empty_record,noHtml) ii ds
+                           do { putMVar cb $ M.findWithDefault (empty_record, mempty) ii ds
                               ; dc_loop dc ds }
                        PutDRecord ii (r,h) ->
                            dc_loop dc $ M.insert ii (r,h) ds

@@ -15,7 +15,9 @@ import Control.Concurrent.MVar
 import Data.Char
 import Data.List
 
-import Text.XHtml.Strict
+import Lucid
+import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
 
 log_handle :: String 
 log_handle = "FlickrCollage"

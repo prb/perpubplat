@@ -8,7 +8,9 @@ import Network.HTTP.Client
 import qualified Data.ByteString.Char8 as BS
 import Data.Maybe ( fromJust )
 import Data.List ( elemIndex, intersperse, isPrefixOf )
-import Text.XHtml.Strict
+import Lucid
+import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
 import Control.Concurrent
 import Control.Concurrent.Chan
 import Control.Concurrent.MVar
@@ -83,27 +85,26 @@ convert_twitter_tstmp ts = concat [ y, "-", mo', "-", d, "T", tm, "Z" ]
       tm = take 8 $ drop 11 ts
 
 tweets_to_xhtml :: [(String,String,String)] -> String
-tweets_to_xhtml = showHtmlFragment . (divid "tweets") . (build_tweet_list "1970-01-01")
+tweets_to_xhtml = TL.unpack . renderText . divid "tweets" . build_tweet_list "1970-01-01"
 
-build_tweet_list :: String -> [(String,String,String)] -> Html
-build_tweet_list _ [] = noHtml
-build_tweet_list last_date ((d,t,tweet_id):dts)
-    = concatHtml [ if last_date `isPrefixOf` d then
-                       noHtml
-                   else
-                       (p ! [theclass "tweet_group" ]) . stringToHtml $ date
-                 , p ! [theclass "tweet"] $ concatHtml [ _a tweet_link time
-                                                        , stringToHtml " "
-                                                        , text ]
-                 , build_tweet_list date dts ]
-      where
-        wrap st = (thespan ! [ theclass st ])
-        time_hunk = (take 9) . (drop 11)
-        time = wrap "tweet_stamp" $ stringToHtml . time_hunk $ d
-        date = take 10 d
-        text = wrap "tweet_text" $ primHtml . pre_process $ t
-        tweet_link = "http://twitter.com/" ++ C.twitter_user ++ "/statuses/"
-                     ++ tweet_id
+build_tweet_list :: String -> [(String,String,String)] -> Html ()
+build_tweet_list _ [] = mempty
+build_tweet_list last_date ((d,t,tweet_id):dts) = do
+    if last_date `isPrefixOf` d
+        then mempty
+        else p_ [class_ "tweet_group"] $ toHtml date
+    p_ [class_ "tweet"] $ do
+        _a tweet_link time
+        toHtml (" " :: String)
+        text
+    build_tweet_list date dts
+  where
+    wrap st content = span_ [class_ (T.pack st)] content
+    time_hunk = (take 9) . (drop 11)
+    time = wrap "tweet_stamp" $ toHtml . time_hunk $ d
+    date = take 10 d
+    text = wrap "tweet_text" $ toHtmlRaw . pre_process $ t
+    tweet_link = "http://twitter.com/" ++ C.twitter_user ++ "/statuses/" ++ tweet_id
         
 pre_process :: String -> String
 pre_process s = case parse  pre_process_parser "" s of
