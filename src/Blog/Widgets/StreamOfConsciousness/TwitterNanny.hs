@@ -10,7 +10,6 @@ import Network.HTTP.Client
 import qualified Data.ByteString.Char8 as BS
 import Data.Maybe ( fromJust )
 
-import Text.JSON
 
 import qualified Codec.Binary.Base64.String as B64
 

@@ -11,7 +11,6 @@ import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Types.Status
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS
-import Text.JSON
 import Data.Digest.Pure.MD5
 import Data.List ( intersperse )
 

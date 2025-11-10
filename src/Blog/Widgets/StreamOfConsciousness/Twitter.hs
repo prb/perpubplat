@@ -14,7 +14,6 @@ import Data.Maybe ( fromJust )
 import Data.List ( elemIndex, intersperse )
 
 import qualified Text.XHtml.Strict as X
-import Text.JSON
 
 import qualified Codec.Binary.Base64.String as B64
 

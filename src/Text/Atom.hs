@@ -49,7 +49,8 @@ module Text.Atom (AtomElement( Feed,Entry,Content, Author,
                   ContentType(XHTML,TEXT),
                   toXml,feed_link,feed_link_alt, start_feed, end_feed) where
 
-import qualified Text.XHtml.Strict as X
+import Lucid hiding (link_)
+import qualified Data.Text as T
 import Data.Maybe
 
 {-
@@ -180,21 +181,19 @@ end_div =  "</div>"
 
 -- | Output a @rel=@-style autodiscovery link; see
 -- <http://blog.whatwg.org/feed-autodiscovery>.
-link_ :: Bool -- ^ whether or not the feed is for the current document.
+atom_link_ :: Bool -- ^ whether or not the feed is for the current document.
       -> String -- ^ the URL
       -> String -- ^ the title for the feed
-      -> X.Html -- ^ the link
-link_ alt u t = X.thelink ( X.noHtml )
-                X.! [ X.rel feed_kind, X.thetype "application/atom+xml",
-                      X.href u, X.title t ]
+      -> Html () -- ^ the link
+atom_link_ alt u t = Lucid.link_ [ rel_ feed_kind, type_ "application/atom+xml"
+                                  , href_ (T.pack u), title_ (T.pack t) ]
     where
-      feed_kind = if alt then "feed alternate"
-                  else "feed"
+      feed_kind = T.pack $ if alt then "feed alternate" else "feed"
 
 -- | Convenience for creating a @rel=\"feed\"@ type @<link>@.
-feed_link :: String -> String -> X.Html
-feed_link = link_ False
+feed_link :: String -> String -> Html ()
+feed_link = atom_link_ False
 
 -- | Convenience for creating a @rel=\"feed alternate\"@ type @<link>@.
-feed_link_alt :: String -> String -> X.Html
-feed_link_alt = link_ True
+feed_link_alt :: String -> String -> Html ()
+feed_link_alt = atom_link_ True

@@ -10,7 +10,6 @@ import Random
 
 import Network.HTTP.Client
 import qualified Data.ByteString.Char8 as BS
-import Text.JSON
 import Data.Maybe
 import Control.Concurrent.MVar
 import Data.Char
