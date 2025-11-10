@@ -8,26 +8,29 @@ import Text.ParserCombinators.Parsec
 
 import qualified System.Log.Logger as L
 
-import Network.HTTP
-import Network.HTTP.Headers
-import Network.URI ( parseURI )
+import Network.HTTP.Client
+import Network.HTTP.Types.Header (hAuthorization)
+import qualified Data.ByteString.Char8 as BS
 import Data.Maybe ( fromJust )
 import Data.List ( elemIndex, intersperse )
+import Data.Aeson (Value(..))
 
-import qualified Text.XHtml.Strict as X
-import Text.JSON
+import Lucid (span_, class_, toHtmlRaw, renderText)
+import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
 
 import qualified Codec.Binary.Base64.String as B64
 
 import Blog.Widgets.JsonUtilities
+import Blog.FrontEnd.ContentAtoms (urlEncode)
 
 import Blog.BackEnd.HttpPoller
 
 data Kind = Tweet | Reply
 
-method :: Kind -> String
-method Tweet = "user_timeline"
-method Reply = "replies"
+methodName :: Kind -> String
+methodName Tweet = "user_timeline"
+methodName Reply = "replies"
 
 handler :: Kind -> SoCController -> String -> String -> IO ()
 handler Tweet = handle_tweets
@@ -53,17 +56,17 @@ start_twitter kind socc user password
                twitter_period
          ; return $ Worker socc p }
 
-build_request :: Kind -> String -> String -> Request String
-build_request kind user password = Request uri GET heads ""
-    where
-      uri = fromJust $ parseURI $ "http://twitter.com/statuses/"
-            ++ (method kind) ++ ".json"
-      heads = [ Header HdrAuthorization $ (++) "Basic " $ B64.encode $ user ++ ":" ++ password ]
+build_request :: Kind -> String -> String -> Request
+build_request kind user password =
+    let url = "http://twitter.com/statuses/" ++ (methodName kind) ++ ".json"
+        authValue = "Basic " ++ B64.encode (user ++ ":" ++ password)
+    in (fromJust $ parseRequest url)
+       { requestHeaders = [(hAuthorization, BS.pack authValue)] }
 
 handle_tweets :: SoCController -> String -> String -> IO ()
 handle_tweets socc user body
     = case parse_utf8_json body of
-        Right v@(JSArray _) ->
+        Right v@(Array _) ->
             commit socc $ tweets_to_thoughts user v
         Right _ ->
             L.errorM (log_handle Tweet) $ "Unexpected non-array JSON response that starts with: "
@@ -71,7 +74,7 @@ handle_tweets socc user body
         Left err_message ->
             L.errorM (log_handle Tweet) err_message
 
-tweets_to_thoughts :: String -> JSValue -> [T.Thought]
+tweets_to_thoughts :: String -> Value -> [T.Thought]
 tweets_to_thoughts user v = map (\ (d,u,t) -> T.Thought T.TwitterTweet d u t Nothing) $ zip3 times urls texts
     where
       texts = map (tweet_body_to_xhtml . uns) $ una $ v </> "text"
@@ -81,7 +84,7 @@ tweets_to_thoughts user v = map (\ (d,u,t) -> T.Thought T.TwitterTweet d u t Not
 handle_replies :: SoCController -> String -> String -> IO ()
 handle_replies socc user body
     = case parse_utf8_json body of
-        Right v@(JSArray _) ->
+        Right v@(Array _) ->
             commit socc $ replies_to_thoughts user v
         Right _ ->
             L.errorM (log_handle Reply) $ "Unexpected non-array JSON response that starts with: "
@@ -89,7 +92,7 @@ handle_replies socc user body
         Left err_message ->
             L.errorM (log_handle Reply) err_message
 
-replies_to_thoughts :: String -> JSValue -> [T.Thought]
+replies_to_thoughts :: String -> Value -> [T.Thought]
 replies_to_thoughts user v = map (\ (d,u,t) -> T.Thought T.TwitterReply d u t Nothing) $ zip3 times urls texts
     where
       tweet_ids = map (show . unn) $ una $ v </> "id"
@@ -103,8 +106,8 @@ tweet_id_to_link :: String -> String -> String
 tweet_id_to_link user t_id = "http://twitter.com/" ++ user ++ "/statuses/" ++ t_id
 
 tweet_body_to_xhtml :: String -> String
-tweet_body_to_xhtml = X.showHtmlFragment . (X.thespan X.! [ X.theclass "tweet_text" ])
-                      . X.primHtml . pre_process
+tweet_body_to_xhtml = TL.unpack . renderText . span_ [class_ (T.pack "tweet_text")]
+                      . toHtmlRaw . pre_process
 
 convert_twitter_tstmp :: String -> String
 convert_twitter_tstmp ts = concat [ y, "-", mo', "-", d, "T", tm, "Z" ]

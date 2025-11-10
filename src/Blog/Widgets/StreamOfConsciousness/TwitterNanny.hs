@@ -6,12 +6,11 @@ import Blog.Widgets.StreamOfConsciousness.Controller ( Worker ( .. )
 
 import qualified System.Log.Logger as L
 
-import Network.HTTP
-import Network.HTTP.Headers
-import Network.URI ( parseURI )
+import Network.HTTP.Client
+import Network.HTTP.Types.Header (hAuthorization)
+import qualified Data.ByteString.Char8 as BS
 import Data.Maybe ( fromJust )
-
-import Text.JSON
+import Data.Aeson (Value(..))
 
 import qualified Codec.Binary.Base64.String as B64
 
@@ -30,23 +29,24 @@ start_twitter_nanny socc kids user password = do { let req = build_request user 
                                                  ; p <- start_poller log_handle req (handle_throttle kids) nanny_period
                                                  ; return $ Worker socc p }
 
-build_request :: String -> String -> Request String
-build_request user password = Request uri GET heads ""
-    where
-      uri = fromJust $ parseURI $ "http://twitter.com/account/rate_limit_status.json"
-      heads = [ Header HdrAuthorization $ (++) "Basic " $ B64.encode $ user ++ ":" ++ password ]
+build_request :: String -> String -> Request
+build_request user password =
+    let url = "http://twitter.com/account/rate_limit_status.json"
+        authValue = "Basic " ++ B64.encode (user ++ ":" ++ password)
+    in (fromJust $ parseRequest url)
+       { requestHeaders = [(hAuthorization, BS.pack authValue)] }
 
 handle_throttle :: [(Worker,Int)] -> String -> IO ()
 handle_throttle ws body = case parse_utf8_json body of
-                            Right v@(JSObject _) ->
+                            Right v@(Object _) ->
                                 compute_new_delays ws v
                             Right _ ->
                                 L.errorM log_handle $ "Unexpected non-object JSON response that starts with: "
                                      ++ (take 100 body) ++ " [...]"
                             Left err_message ->
                                 L.errorM log_handle err_message
-                               
-compute_new_delays :: [(Worker,Int)] -> JSValue -> IO ()
+
+compute_new_delays :: [(Worker,Int)] -> Value -> IO ()
 compute_new_delays _ v = do { let throttle = unn $ v </> "remaining_hits"
                              ; L.infoM log_handle $ "Twitter throttle is " ++ (show throttle) ++ " requests per hour."
                              }

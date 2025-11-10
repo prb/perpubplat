@@ -9,7 +9,7 @@ import qualified Blog.FrontEnd.Urls as U
 import qualified Blog.Constants as C
 import qualified Blog.Model.Entry as B
 
-import List (intersperse)
+import Data.List (intersperse)
 
 data Feed = AllPosts
           | ByTag { tag :: String }

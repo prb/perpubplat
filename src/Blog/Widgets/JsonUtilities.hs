@@ -1,69 +1,92 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Blog.Widgets.JsonUtilities where
 
-import Text.JSON
+import Data.Aeson
+import qualified Data.Aeson.KeyMap as KM
+import qualified Data.Aeson.Key as K
+import qualified Data.Text as T
+import qualified Data.ByteString.Lazy.Char8 as LBS
+import qualified Data.Vector as V
+import Data.Scientific (toRealFloat, toBoundedInteger)
 import qualified Codec.Binary.UTF8.String as UTF8
 
-parse_utf8_json :: String -> Either String JSValue
-parse_utf8_json = resultToEither . decode . UTF8.decodeString
+-- Parse UTF8-encoded JSON string
+parse_utf8_json :: String -> Either String Value
+parse_utf8_json s = eitherDecode $ LBS.pack $ UTF8.decodeString s
 
-(</>) :: JSValue -> String -> JSValue
-(JSObject o) </> s = flatten . JSArray $ map snd $ filter (((==) s) . fst) $ fromJSObject o
-(JSArray a) </> s = flatten . JSArray $ map (flip (</>) $ s) a
-_ </> _ = JSNull
+-- Path operator: extract value(s) by key
+(</>) :: Value -> String -> Value
+(Object o) </> s = flatten $ Array $ V.fromList $ map snd $ filter ((== K.fromText (T.pack s)) . fst) $ KM.toList o
+(Array a) </> s = flatten $ Array $ V.map (\v -> v </> s) a
+_ </> _ = Null
 
-flatten :: JSValue -> JSValue
-flatten (JSObject o) = JSObject $ toJSObject $ map (\(s,v) -> (s,flatten v)) $ fromJSObject o
-flatten (JSArray [x]) = flatten x
-flatten (JSArray a) = JSArray $ map flatten a
+-- Flatten single-element arrays
+flatten :: Value -> Value
+flatten (Object o) = Object $ KM.map flatten o
+flatten (Array v) | V.length v == 1 = flatten $ V.head v
+flatten (Array v) = Array $ V.map flatten v
 flatten y = y
 
-blank :: JSValue
-blank = JSString $ toJSString ""
+-- Constants
+blank :: Value
+blank = String ""
 
-zero :: JSValue
-zero = JSRational False 0
+zero :: Value
+zero = Number 0
 
-empty_object :: JSValue
-empty_object = JSObject $ toJSObject []
+empty_object :: Value
+empty_object = Object KM.empty
 
-empty_array :: JSValue
-empty_array = JSArray []
+empty_array :: Value
+empty_array = Array V.empty
 
-unn_ :: JSValue -> [Int]
-unn_ a@(JSArray _) = map unn $ una . flatten $ a
-unn_ r@(JSRational _ _) = [ unn r ]
+-- Extract integer
+unn :: Value -> Int
+unn (Number n) = case toBoundedInteger n of
+    Just i -> i
+    Nothing -> round $ toRealFloat n
+unn (Array v) | V.length v == 1 = unn $ V.head v
+unn v = error $ "Can't un-number a non-Number value: " ++ (show v)
+
+-- Extract integer array
+unn_ :: Value -> [Int]
+unn_ a@(Array _) = map unn $ una $ flatten a
+unn_ r@(Number _) = [unn r]
 unn_ v = error $ "Can't un-number-array a non-number-array value: " ++ (show v)
 
-unnWithDefault :: Int -> JSValue -> Int
-unnWithDefault _ j@(JSRational _ _) = unn j
-unnWithDefault i (JSArray [j]) = unnWithDefault i j
+-- Extract integer with default
+unnWithDefault :: Int -> Value -> Int
+unnWithDefault _ j@(Number _) = unn j
+unnWithDefault i (Array v) | V.length v == 1 = unnWithDefault i (V.head v)
 unnWithDefault i _ = i
 
-unn :: JSValue -> Int
-unn (JSRational _ n) = fromInteger . round $ n
-unn (JSArray [n@(JSRational _ _)]) = unn n
-unn v = error $ "Can't un-number a non-JSRational value: " ++ (show v)
+-- Extract object as key-value pairs
+uno :: Value -> [(String, Value)]
+uno (Object o) = map (\(k, v) -> (T.unpack (K.toText k), v)) $ KM.toList o
+uno v = error $ "Can't un-object a non-Object value: " ++ (show v)
 
-uno :: JSValue -> [(String,JSValue)]
-uno (JSObject o) = fromJSObject o
-uno v = error $ "Can't un-object a non-JSOBject value: " ++ (show v)
-
-una :: JSValue -> [JSValue]
-una (JSArray a) = a
+-- Extract array
+una :: Value -> [Value]
+una (Array a) = V.toList a
 una v = [v]
 
-uns_ :: JSValue -> [String]
-uns_ a@(JSArray _) = map uns $ una . flatten $ a
-uns_ (JSString s) = [fromJSString s]
-uns_ n@(JSRational _ _) = [show . unn $ n]
-uns_ v = error $ "Can't un-string-array a non-JSArray value: " ++ (show v)
+-- Extract string
+uns :: Value -> String
+uns (String s) = T.unpack s
+uns (Array v) | V.length v == 1 && isString (V.head v) = uns $ V.head v
+  where isString (String _) = True
+        isString _ = False
+uns v = error $ "Can't un-string non-String value: " ++ (show v)
 
-uns :: JSValue -> String
-uns (JSString s) = fromJSString s
-uns (JSArray [s@(JSString _)]) = uns s
-uns v = error $ "Can't un-string non-JSString value: " ++ (show v)
+-- Extract string array
+uns_ :: Value -> [String]
+uns_ a@(Array _) = map uns $ una $ flatten a
+uns_ (String s) = [T.unpack s]
+uns_ n@(Number _) = [show $ unn n]
+uns_ v = error $ "Can't un-string-array a non-Array value: " ++ (show v)
 
-unsWithDefault :: String -> JSValue -> String
-unsWithDefault _ v@(JSString _) = uns v
-unsWithDefault s (JSArray [v]) = unsWithDefault s v
+-- Extract string with default
+unsWithDefault :: String -> Value -> String
+unsWithDefault _ v@(String _) = uns v
+unsWithDefault s (Array v) | V.length v == 1 = unsWithDefault s (V.head v)
 unsWithDefault s _ = s

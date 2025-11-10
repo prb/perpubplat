@@ -40,5 +40,5 @@ append n i h c = do { ((p,m),l,ts) <- readChan c
                       else
                           append n (i+1) h c }
 
-printex :: Handle -> CE.Exception -> IO ()
+printex :: Handle -> CE.SomeException -> IO ()
 printex h e = hPutStrLn System.IO.stderr $ "Error writing to log handle " ++ (show h) ++ ": " ++ show e

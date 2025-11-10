@@ -1,4 +1,4 @@
--- perpubplat.hs: servlet to run the blog.
+-- perpubplat.hs: web server for the blog using Warp/WAI
 
 import qualified Blog.Constants as C
 import qualified Blog.FrontEnd.Presentation as P
@@ -24,17 +24,22 @@ import qualified Utilities as Utils
 import Blog.BackEnd.AsyncLogHandler
 
 import qualified System.Log.Logger as L
-
 import qualified System.IO as SIO
 
-import Data.ByteString.Lazy ( copy )
-import Data.ByteString.Lazy.Char8 ( unpack, pack )
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as BS8
+import qualified Data.ByteString.Lazy as LBS
+import qualified Data.ByteString.Lazy.Char8 as LBS8
 import Data.Digest.Pure.MD5 ( md5 )
-import Control.Concurrent ( forkIO )
-import Data.Maybe (fromJust, isJust, catMaybes)
-import Data.List (isPrefixOf)
+import Data.Maybe (fromJust, isJust, catMaybes, fromMaybe)
+import Data.List (isPrefixOf, lookup)
+import qualified Data.CaseInsensitive as CI
 import Control.Monad (when)
-import Network.FastCGI 
+
+import Network.Wai
+import Network.Wai.Handler.Warp (run)
+import Network.HTTP.Types
+import Network.HTTP.Types.Header (hETag)
 import Network.URI ( uriPath )
 
 data Controllers = Controllers { model :: H.Holder B.Model
@@ -43,188 +48,206 @@ data Controllers = Controllers { model :: H.Holder B.Model
                                , referer_stream :: RefS.RefererStream
                                }
 
-serve :: Controllers -> CGI CGIResult
-serve con = do { u <- requestURI
-               ; p <- progURI
-               ; m <- requestMethod
-               ; let c = m ++ " " ++ drop (length $ uriPath p) (uriPath u)
-               ; let route = parse_uri c
-               ; case route of 
-                   (NoSuchUri u) -> outputNotFound u
-                   (XhtmlView v) -> serve_content con v 
-                   (AtomFeed f) -> serve_feed con f
-                   (CommentFormView t) -> add_comment_form con t
-                   (CommentSubmission t) -> process_comment_form con t
-                   (ReviewComments n) -> review_comments con n
-                   (ReviewComment n) -> review_comment con n
--- Drafts functionality
---                   (ReviewDrafts n) -> review_drafts con n
---                   (ReviewDraft n) -> review_drafts con n
-                   PostComment -> post_comment con
-                   DeleteComment -> delete_comment con
-                   DeleteComments -> delete_comments con
-                   (AlterComment n) -> edit_comment con n
-                   (Command c) -> perform_command con c }
+-- Main WAI application
+serve :: Controllers -> Application
+serve con req respond = do
+    let method = BS8.unpack $ requestMethod req
+        path = BS8.unpack $ rawPathInfo req
+        routeStr = method ++ " " ++ path
+        route = parse_uri routeStr
 
-serve_content :: (V.Viewable v) => Controllers -> v -> CGI CGIResult
-serve_content con v = do { r <- requestHeader "Referer"
-                         ; when (isJust r) $ liftIO $ RefS.send_referer (referer_stream con) v (fromJust r)
-                         ; setStatus 200 "OK"
-                         -- ; setHeader "Content-type" "application/xhtml+xml"
-                         ; setHeader "Content-type" "text/html; charset=utf-8"
-                         ; m <- liftIO $ H.get (model con)
-                         ; when (V.kind v == V.Single) $ 
-                               liftIO $ mapM_ (HitT.tally_hit . ChromeB.hit_tracker . chrome_b $ con) $ ((V.lens v) m)
-                         ; h <- liftIO $ P.assemble_page v (chrome_b con) m
-                         ; output h }
+    case route of
+        (NoSuchUri u) -> respond $ notFound u
+        (XhtmlView v) -> serve_content con req respond v
+        (AtomFeed f) -> serve_feed con req respond f
+        (CommentFormView t) -> add_comment_form con req respond t
+        (CommentSubmission t) -> process_comment_form con req respond t
+        (ReviewComments n) -> review_comments con req respond n
+        (ReviewComment n) -> review_comment con req respond n
+        PostComment -> post_comment con req respond
+        DeleteComment -> delete_comment con req respond
+        DeleteComments -> delete_comments con req respond
+        (AlterComment n) -> edit_comment con req respond n
+        (Command c) -> perform_command con req respond c
 
-serve_feed :: (F.Feedable f, Show f) => Controllers -> f -> CGI CGIResult
-serve_feed con f =
-    do { m <- liftIO $ H.get (model con)
-       ; let items = F.items f m
-       ; let last_updated = S.last_updated items
-       ; let etag = show . md5 . pack $ (show f) ++ (last_updated)
-       ; ifNoneMatch <- requestHeader "If-None-Match"
-       ; let etag_didnt_match = 
-                 case ifNoneMatch of
-                   Nothing -> True
-                   Just e ->
-                       e /= etag                                     
-       ; ifModifiedSince <- requestHeader "If-Modified-Since"
-       {- From the HTTP 1.1 spec:
+-- Helper to get header value
+getHeader :: HeaderName -> Request -> Maybe String
+getHeader name req = fmap BS8.unpack $ Prelude.lookup name (requestHeaders req)
 
-          "If none of the entity tags match, then the server MAY
-          perform the requested method as if the If-None-Match header
-          field did not exist, but MUST also ignore any
-          If-Modified-Since header field(s) in the request. That is,
-          if no entity tags match, then the server MUST NOT return a
-          304 (Not Modified) response. "
+-- Helper to parse query/form parameters
+getParam :: BS.ByteString -> Request -> IO (Maybe String)
+getParam name req = do
+    let qparams = queryString req
+    return $ case Prelude.lookup name qparams of
+        Just (Just v) -> Just (BS8.unpack v)
+        _ -> Nothing
 
-        -}
-       ; let modified = ( ifNoneMatch /= Nothing && etag_didnt_match) 
-                        || 
-                        ( ( ifNoneMatch == Nothing )
-                          && case ifModifiedSince of
-                               Nothing -> True
-                               Just d -> (Utils.httpDateToIso8601 d) < last_updated )
-       ; if modified then
-             do { setStatus 200 "OK"
-                ; setHeader "Content-type" "application/atom+xml"
-                ; setHeader "Last-Modified" $ Utils.iso8601toRfc1123 last_updated
-                ; setHeader "ETag" $ etag
-                ; output $ S.assemble_feed f m items }
-         else
-             do { setStatus 304 "Not Modified"
-                ; output $ ""}
-       }
+serve_content :: (V.Viewable v) => Controllers -> Request -> (Response -> IO ResponseReceived) -> v -> IO ResponseReceived
+serve_content con req respond v = do
+    let referer = getHeader (CI.mk $ BS8.pack "Referer") req
+    when (isJust referer) $ RefS.send_referer (referer_stream con) v (fromJust referer)
 
-review_comments :: Controllers -> Maybe Int -> CGI CGIResult
-review_comments con n = do { cmts <- liftIO $ CommentQ.fetch_comments (comment_c con)
-                           ; m <- liftIO $ H.get (model con)
-                           ; let p = case n of
-                                       Nothing -> 1
-                                       Just i -> i
-                           ; output $ PC.display_comments m p cmts }
+    m <- H.get (model con)
+    when (V.kind v == V.Single) $
+        mapM_ (HitT.tally_hit . ChromeB.hit_tracker . chrome_b $ con) $ ((V.lens v) m)
 
-review_comment :: Controllers -> Int -> CGI CGIResult
-review_comment con n = do { cmt <- liftIO $ CommentQ.fetch_comment (comment_c con) n
-                          ; case cmt of
-                              (Just c) -> 
-                                  do { m <- liftIO $ H.get (model con)
-                                     ; let i = B.item_by_id m (fromJust $ B.parent c)
-                                     ; let cf = CF.from_item c
-                                     ; output $ CE.comment_form m i (U.edit_comment_target n) (Just cf) }
-                              Nothing ->
-                                  redirect $ U.pending_comments Nothing }
+    html <- P.assemble_page v (chrome_b con) m
+    respond $ responseLBS status200
+        [(hContentType, BS8.pack "text/html; charset=utf-8")]
+        (LBS8.pack html)
 
-edit_comment :: Controllers -> Int -> CGI CGIResult
-edit_comment con n = do { cf <- request_to_comment_form
-                        ; liftIO $ CommentQ.alter_comment (comment_c con) n cf
-                        ; redirect $ U.pending_comments Nothing }
+serve_feed :: (F.Feedable f, Show f) => Controllers -> Request -> (Response -> IO ResponseReceived) -> f -> IO ResponseReceived
+serve_feed con req respond f = do
+    m <- H.get (model con)
+    let items = F.items f m
+        last_updated = S.last_updated items
+        etag = show . md5 . LBS8.pack $ (show f) ++ last_updated
+        ifNoneMatch = getHeader (CI.mk $ BS8.pack "If-None-Match") req
+        etag_didnt_match = case ifNoneMatch of
+            Nothing -> True
+            Just e -> e /= etag
+        ifModifiedSince = getHeader (CI.mk $ BS8.pack "If-Modified-Since") req
+        modified = (ifNoneMatch /= Nothing && etag_didnt_match)
+                   || (ifNoneMatch == Nothing && case ifModifiedSince of
+                        Nothing -> True
+                        Just d -> (Utils.httpDateToIso8601 d) < last_updated)
 
-post_comment :: Controllers -> CGI CGIResult
-post_comment con = do { int_id <- readInput "id"
-                      ; pg <- readInput "page"
-                      ; liftIO $ CommentQ.post_comment (model con) (comment_c con) (fromJust int_id)
-                      ; redirect $ U.pending_comments pg }
+    if modified
+        then respond $ responseLBS status200
+            [ (hContentType, BS8.pack "application/atom+xml")
+            , (CI.mk $ BS8.pack "Last-Modified", BS8.pack $ Utils.iso8601toRfc1123 last_updated)
+            , (hETag, BS8.pack etag)
+            ]
+            (LBS8.pack $ S.assemble_feed f m items)
+        else respond $ responseLBS status304 [] LBS.empty
 
-delete_comment :: Controllers -> CGI CGIResult
-delete_comment con = do { int_id <- readInput "id"
-                        ; pg <- readInput "page"
-                        ; case int_id of
-                            Nothing ->
-                                liftIO $ return ()
-                            Just n ->
-                                liftIO $ CommentQ.delete_comment (comment_c con) n
-                        ; redirect $ U.pending_comments pg }
+review_comments :: Controllers -> Request -> (Response -> IO ResponseReceived) -> Maybe Int -> IO ResponseReceived
+review_comments con req respond n = do
+    cmts <- CommentQ.fetch_comments (comment_c con)
+    m <- H.get (model con)
+    let p = fromMaybe 1 n
+        html = PC.display_comments m p cmts
+    respond $ responseLBS status200 [(hContentType, BS8.pack "text/html; charset=utf-8")] (LBS8.pack html)
 
-delete_comments :: Controllers -> CGI CGIResult
-delete_comments con = do { fields <- getInputNames
-                         ; ids <- (mapM readInput) . (filter (isPrefixOf "id_")) $ fields
-                         ; pg <- readInput "page"
-                         ; case (catMaybes ids) of
-                             [] -> 
-                                 liftIO $ return ()
-                             just_ids ->
-                                 liftIO $ CommentQ.delete_comments (comment_c con) just_ids
-                         ; redirect $ U.pending_comments pg }
+review_comment :: Controllers -> Request -> (Response -> IO ResponseReceived) -> Int -> IO ResponseReceived
+review_comment con req respond n = do
+    cmt <- CommentQ.fetch_comment (comment_c con) n
+    case cmt of
+        Just c -> do
+            m <- H.get (model con)
+            let i = B.item_by_id m (fromJust $ B.parent c)
+                cf = CF.from_item c
+                html = CE.comment_form m i (U.edit_comment_target n) (Just cf)
+            respond $ responseLBS status200 [(hContentType, BS8.pack "text/html; charset=utf-8")] (LBS8.pack html)
+        Nothing ->
+            respond $ redirectTo $ U.pending_comments Nothing
 
-perform_command :: Controllers -> A.Action -> CGI CGIResult
-perform_command con c = case c of
-                          (A.Ingest d) ->
-                              do { result <- liftIO ( MSupp.ingest_draft (model con) d)
-                                 ; case result of
-                                     Right i ->
-                                         do { m <- liftIO $ H.get (model con)
-                                            ; liftIO $ MCL.handle_model_change (chrome_b con) m
-                                            ; redirect $ B.permalink m i}
-                                     Left err ->
-                                         do { setHeader "Content-type" "text/plain"
-                                            ; setStatus 400 " Unable to process draft content"
-                                            ; output $ err ++ "\n"
-                                            }
-                                 }
+edit_comment :: Controllers -> Request -> (Response -> IO ResponseReceived) -> Int -> IO ResponseReceived
+edit_comment con req respond n = do
+    cf <- request_to_comment_form req
+    CommentQ.alter_comment (comment_c con) n cf
+    respond $ redirectTo $ U.pending_comments Nothing
 
-add_comment_form :: Controllers -> String -> CGI CGIResult
-add_comment_form con t = do { m <- liftIO $ H.get (model con)
-                            ; let i = B.post_by_permatitle m t
-                            ; output $ CE.comment_form m i (U.add_comment_target $ B.permatitle i) Nothing }
+post_comment :: Controllers -> Request -> (Response -> IO ResponseReceived) -> IO ResponseReceived
+post_comment con req respond = do
+    int_id <- getParam (BS8.pack "id") req
+    pg <- getParam (BS8.pack "page") req
+    CommentQ.post_comment (model con) (comment_c con) (read $ fromJust int_id)
+    respond $ redirectTo $ U.pending_comments (fmap read pg)
 
-process_comment_form :: Controllers -> String -> CGI CGIResult
-process_comment_form con t = do { cf<- request_to_comment_form
-                                ; m <- liftIO $ H.get (model con)
-                                ; let i = B.post_by_permatitle m t
-                                ; case CF.validate cf of
-                                    (_,True) ->
-                                        do { liftIO $ CommentQ.add_comment (comment_c con) i cf
-                                           ; redirect $ B.permalink m i}
-                                    (cf',False) ->
-                                        output $ CE.comment_form m i (U.add_comment_target $ B.permatitle i) (Just cf') }
+delete_comment :: Controllers -> Request -> (Response -> IO ResponseReceived) -> IO ResponseReceived
+delete_comment con req respond = do
+    int_id <- getParam (BS8.pack "id") req
+    pg <- getParam (BS8.pack "page") req
+    case int_id of
+        Nothing -> return ()
+        Just n -> CommentQ.delete_comment (comment_c con) (read n)
+    respond $ redirectTo $ U.pending_comments (fmap read pg)
 
-request_to_comment_form :: CGI CF.CommentForm
-request_to_comment_form = do { authorName <- getI "authorName"
-                             ; authorEmail <- getI "authorEmail"
-                             ; authorUri <- getI "authorUri"
-                             ; body <- getI "commentBody"
-                             ; return $ CF.new_comment_form authorName authorEmail authorUri body }
+delete_comments :: Controllers -> Request -> (Response -> IO ResponseReceived) -> IO ResponseReceived
+delete_comments con req respond = do
+    let qparams = queryString req
+        idFields = filter (isPrefixOf "id_" . BS8.unpack . fst) qparams
+        ids = catMaybes $ map (\(_,v) -> fmap (read . BS8.unpack) v) idFields
+    pg <- getParam (BS8.pack "page") req
+    case ids of
+        [] -> return ()
+        just_ids -> CommentQ.delete_comments (comment_c con) just_ids
+    respond $ redirectTo $ U.pending_comments (fmap read pg)
 
-getI :: (MonadCGI m) => String -> m String
-getI s = do { mbs <- getInputFPS s
-            ; case mbs of 
-                Nothing ->
-                    return ""
-                (Just bs) ->
-                    return $ unpack $! copy bs } -- avoid segfault
+perform_command :: Controllers -> Request -> (Response -> IO ResponseReceived) -> A.Action -> IO ResponseReceived
+perform_command con req respond c = case c of
+    (A.Ingest d) -> do
+        result <- MSupp.ingest_draft (model con) d
+        case result of
+            Right i -> do
+                m <- H.get (model con)
+                MCL.handle_model_change (chrome_b con) m
+                respond $ redirectTo $ B.permalink m i
+            Left err ->
+                respond $ responseLBS status400
+                    [(hContentType, BS8.pack "text/plain")]
+                    (LBS8.pack $ err ++ "\n")
 
-main :: IO () 
-main = do { root_l <- L.getRootLogger
-          ; h <- SIO.openFile C.logfile SIO.AppendMode
-          ; logfile_appender <- asyncHandler 10 h L.INFO
-          ; L.saveGlobalLogger $ (L.setHandlers [logfile_appender]) . (L.setLevel L.INFO) $ root_l
-          ; cq <- CommentQ.boot
-          ; mh <- MSupp.boot
-          ; cc <- CommentQ.spawn cq
-          ; cb <- (H.get mh) >>= ChromeB.boot
-          ; rs <- RefS.boot
-          ; let con = Controllers mh cc cb rs
-          ; runFastCGIConcurrent' forkIO 50 (serve con) }
+add_comment_form :: Controllers -> Request -> (Response -> IO ResponseReceived) -> String -> IO ResponseReceived
+add_comment_form con req respond t = do
+    m <- H.get (model con)
+    let i = B.post_by_permatitle m t
+        html = CE.comment_form m i (U.add_comment_target $ B.permatitle i) Nothing
+    respond $ responseLBS status200 [(hContentType, BS8.pack "text/html; charset=utf-8")] (LBS8.pack html)
+
+process_comment_form :: Controllers -> Request -> (Response -> IO ResponseReceived) -> String -> IO ResponseReceived
+process_comment_form con req respond t = do
+    cf <- request_to_comment_form req
+    m <- H.get (model con)
+    let i = B.post_by_permatitle m t
+    case CF.validate cf of
+        (_, True) -> do
+            CommentQ.add_comment (comment_c con) i cf
+            respond $ redirectTo $ B.permalink m i
+        (cf', False) -> do
+            let html = CE.comment_form m i (U.add_comment_target $ B.permatitle i) (Just cf')
+            respond $ responseLBS status200 [(hContentType, BS8.pack "text/html; charset=utf-8")] (LBS8.pack html)
+
+request_to_comment_form :: Request -> IO CF.CommentForm
+request_to_comment_form req = do
+    authorName <- getParam (BS8.pack "authorName") req
+    authorEmail <- getParam (BS8.pack "authorEmail") req
+    authorUri <- getParam (BS8.pack "authorUri") req
+    body <- getParam (BS8.pack "commentBody") req
+    return $ CF.new_comment_form
+        (fromMaybe "" authorName)
+        (fromMaybe "" authorEmail)
+        (fromMaybe "" authorUri)
+        (fromMaybe "" body)
+
+-- Helper functions
+notFound :: String -> Response
+notFound url = responseLBS status404
+    [(hContentType, BS8.pack "text/html")]
+    (LBS8.pack $ "<h1>404 Not Found</h1><p>" ++ url ++ "</p>")
+
+redirectTo :: String -> Response
+redirectTo url = responseLBS status302
+    [(hLocation, BS8.pack url)]
+    LBS.empty
+
+main :: IO ()
+main = do
+    root_l <- L.getRootLogger
+    h <- SIO.openFile C.logfile SIO.AppendMode
+    logfile_appender <- asyncHandler 10 h L.INFO
+    L.saveGlobalLogger $ (L.setHandlers [logfile_appender]) . (L.setLevel L.INFO) $ root_l
+
+    cq <- CommentQ.boot
+    mh <- MSupp.boot
+    cc <- CommentQ.spawn cq
+    cb <- (H.get mh) >>= ChromeB.boot
+    rs <- RefS.boot
+
+    let con = Controllers mh cc cb rs
+        port = 3000
+
+    L.infoM "perpubplat" $ "Starting server on port " ++ show port
+    putStrLn $ "Perpubplat server running on http://localhost:" ++ show port
+    run port (serve con)

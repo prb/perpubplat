@@ -14,6 +14,7 @@ import Utilities
 
 import System.IO
 import qualified System.IO.Error as SIE
+import qualified Control.Exception as CE
 import System.FilePath ( (</>) )
 import System.Directory ( removeFile, getDirectoryContents, doesFileExist )
 import Data.List ( isPrefixOf )
@@ -23,7 +24,7 @@ import Control.Concurrent.MVar ( MVar, newMVar, newEmptyMVar, putMVar, takeMVar 
 import Control.Concurrent.Chan ( Chan, newChan,  writeChan, readChan )
 
 import System.Log.Logger
-import System.Time
+import qualified Data.Time.Clock as DTC
 
 log_handle :: String
 log_handle = "CommentQueue"
@@ -153,7 +154,7 @@ boot = do { infoM log_handle $ "Booting CommentQueue from files on disk in "
           ; files <- getDirectoryContents C.comment_dir
           ; let files' = (map (\x -> C.comment_dir </> x)) . (filter is_filename) $ files
           ; files'' <- filterM (doesFileExist) files'
-          ; t1 <- getClockTime
+          ; t1 <- DTC.getCurrentTime
           ; comments <- mapM (load log_handle) files''
           ; let comments' = rights comments
           ; let errors = lefts comments
@@ -161,7 +162,7 @@ boot = do { infoM log_handle $ "Booting CommentQueue from files on disk in "
                  ++ " comments form disk."
           ; log_load_errors_ log_handle errors 
           ; let cnt = length comments'
-          ; t2 <- getClockTime
+          ; t2 <- DTC.getCurrentTime
           ; infoM log_handle $ "Loaded " ++ (show cnt) ++ " comments from disk in " ++
                   ( elapsed_hundreths t2 t1 ) ++ " seconds."
           ; case comments' of
@@ -190,7 +191,7 @@ delete_ cq idx = do { let cq' = cq { comments = M.delete idx (comments cq) }
                     ; let f = filename idx
                     ; exists <- doesFileExist f
                     ; when exists ((removeFile f)
-                                   `SIE.catch`
+                                   `CE.catch`
                                    (handle_error $"Unable to remove comment data file " ++ f ++ "."))
                     ; return cq' }
 
@@ -207,7 +208,7 @@ write_ i = do { let f = filename (B.internal_id i)
               ; do { h <- openFile f WriteMode
                    ; hPutStr h $ B.to_string i
                    ; hClose h }
-                `SIE.catch`
+                `CE.catch`
                 (handle_error $ "Unable to write comment data file " ++ f
                       ++ " to disk; this may result in data loss if the application is stopped"
                       ++ " before the comment is handled.")

@@ -6,8 +6,8 @@ import qualified Blog.FrontEnd.Urls as U
 import Utilities
 import qualified Blog.Constants as C
 
-import Maybe
-import List ( sortBy, isPrefixOf, intersperse)
+import Data.Maybe
+import Data.List ( sortBy, isPrefixOf, intersperse)
 import qualified Data.Map as M
 import Data.Map ( (!) )
 

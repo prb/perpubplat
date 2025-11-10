@@ -16,7 +16,7 @@ import qualified Blog.Model.Entry as B
 import qualified Blog.FrontEnd.Feeds as F
 import Data.Maybe (maybeToList)
 import Utilities
-import List (intersperse)
+import Data.List (intersperse)
 
 data View = All { page_n :: Maybe Int }
           | ByYear { year :: Int, page_n :: Maybe Int }

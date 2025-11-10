@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | Assemblage of functions for loading and saving an 'Item' from/to
 -- a file.  The storage system works on the assumption that a post is
 -- stored in a directory named for its permatitle and that comments
@@ -18,7 +19,7 @@ import System.FilePath ((</>), splitPath)
 import Control.Monad (filterM)
 import qualified Control.Exception as CE
 
-import System.Time (getClockTime)
+import qualified Data.Time.Clock as DTC
 import System.Log.Logger
 
 log_handle :: String
@@ -33,10 +34,10 @@ instance Show LoadError where
 
 -- | Load all posts from disk.
 boot :: IO B.Model
-boot = do { t1 <- getClockTime
+boot = do { t1 <- DTC.getCurrentTime
           ; all <- find_all is_content_file is_subdirectory C.content_storage_dir
           ; content <- mapM readFile' all
-          ; t2 <- getClockTime
+          ; t2 <- DTC.getCurrentTime
           ; infoM log_handle $ "Loaded " ++ (show $ length content) ++ " items (posts and comments) from "
                   ++ C.content_storage_dir ++ " in " ++ (elapsed_hundreths t2 t1) ++ " seconds."
           ; let loaded =  map (uncurry EP.item_from_string) $ zip all content
@@ -87,9 +88,9 @@ save :: B.Model -> B.Item -> IO Bool
 save m i = do { D.createDirectoryIfMissing True d
               ; writeFile f (B.to_string i)
               ; return True}
-           `SIE.catch`
+           `CE.catch`
            \e -> do { errorM log_handle $ "Unable to store item in path "
-                            ++ f ++ "; exception was: " ++ ( show e )
+                            ++ f ++ "; exception was: " ++ ( show (e :: CE.SomeException) )
                    ; return False }
     where
       d = C.content_storage_dir </> (B.ancestor_path m i)
@@ -102,11 +103,11 @@ load_content :: FilePath -> IO (Either LoadError B.Item)
 load_content = load_with log_handle EP.item_from_string (\g -> C.content_storage_dir </> g </> "content.ppp")
 
 load_with :: String -> (String -> String -> Either (String, String) B.Item) -> (String -> String) -> FilePath -> IO (Either LoadError B.Item)
-load_with lh parser base f = do { file <- CE.try $ readFile' $ base f
-                                ; case file of 
-                                    Right content -> 
+load_with lh parser base f = do { file <- (CE.try $ readFile' $ base f :: IO (Either CE.SomeException String))
+                                ; case file of
+                                    Right content ->
                                         do { let d = parser f $! content
-                                           ; case d of 
+                                           ; case d of
                                                Right i ->
                                                    return $ Right i
                                                Left (p,e) ->
@@ -114,7 +115,7 @@ load_with lh parser base f = do { file <- CE.try $ readFile' $ base f
                                                       ; log_load_error_ lh err
                                                       ; return $ Left err }
                                            }
-                                    Left ex -> 
+                                    Left (ex :: CE.SomeException) ->
 
                                         do { let err = LoadError (base f) (show ex)
                                            ; log_load_error_ lh err

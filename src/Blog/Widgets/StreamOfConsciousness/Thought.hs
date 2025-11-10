@@ -1,6 +1,8 @@
 module Blog.Widgets.StreamOfConsciousness.Thought where
 
-import Text.XHtml.Strict
+import Lucid
+import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
 import Data.List
 
 import Blog.FrontEnd.ContentAtoms
@@ -9,9 +11,9 @@ import qualified Blog.Constants as C
 data Channel = Delicious | TwitterTweet | TwitterReply | GoogleReader | Identica
              deriving ( Show, Read, Eq, Ord, Enum )
 
-icon :: Channel -> Html
-icon c = image ! [ src $ C.blog_root ++ "/files/" ++ (show c) ++ "-icon.png"
-               , alt $ show c ]
+icon :: Channel -> Html ()
+icon c = img_ [ src_ $ T.pack $ C.blog_root ++ "/files/" ++ (show c) ++ "-icon.png"
+              , alt_ $ T.pack $ show c ]
 
 data Thought = Thought { channel :: Channel
                        , date :: String
@@ -31,39 +33,41 @@ instance Ord Thought where
                     && ((channel t1) <= (channel t2)) )
 
 thoughts_to_xhtml :: [Thought] -> String
-thoughts_to_xhtml = showHtmlFragment . (divid "thoughts")
-                    . (traverse_thoughts "1970-01-01")
+thoughts_to_xhtml = TL.unpack . renderText . div_ [id_ (T.pack "thoughts")]
+                    . traverse_thoughts "1970-01-01"
 
-traverse_thoughts :: String -> [Thought] -> Html
-traverse_thoughts _ [] = noHtml
+traverse_thoughts :: String -> [Thought] -> Html ()
+traverse_thoughts _ [] = mempty
 traverse_thoughts l_d (t:ts)
-    = (concatHtml [ if l_d `isPrefixOf` d then
-                       noHtml
+    = do mconcat [ if l_d `isPrefixOf` d then
+                       mempty
                    else
-                       (p ! [theclass "thought_group" ]) . stringToHtml $ d
-                  , p ! [theclass "thought"] $ concatHtml [ icon $ channel t
-                                                          , stringToHtml " "
-                                                          , to_html t
-                                                          ]
-                  ]) +++ (traverse_thoughts d ts)
+                       p_ [class_ (T.pack "thought_group")] $ toHtml d
+                  , p_ [class_ (T.pack "thought")] $ mconcat [ icon $ channel t
+                                                              , toHtml (" " :: String)
+                                                              , to_html t
+                                                              ]
+                  ]
+         traverse_thoughts d ts
       where
         d = take 10 $ date t
 
-to_html :: Thought -> Html
+to_html :: Thought -> Html ()
 to_html (Thought k d u t _) | k == TwitterTweet || k == TwitterReply || k == Identica
-                                      = concatHtml [ _a u time
-                                                   , stringToHtml " "
-                                                   , text ]
+                                      = mconcat [ _a u time
+                                                , toHtml (" " :: String)
+                                                , text ]
                           where
-                            wrap st = (thespan ! [ theclass st ])
+                            wrap :: T.Text -> Html () -> Html ()
+                            wrap st content = span_ [class_ st] content
                             time_hunk = (take 9) . (drop 11)
-                            time = (wrap "tweet_stamp") . stringToHtml $ time_hunk d
-                            text = wrap "tweet_text" $ primHtml t
+                            time = wrap (T.pack "tweet_stamp") $ toHtml $ time_hunk d
+                            text = wrap (T.pack "tweet_text") $ toHtmlRaw t
 
-to_html (Thought _ _ u t Nothing) = _a u (primHtml t)
-to_html (Thought _ _ u t (Just d)) = concatHtml [ _a u (primHtml t) 
-                                                , stringToHtml " "
-                                                , stringToHtml d ]
+to_html (Thought _ _ u t Nothing) = _a u (toHtmlRaw t)
+to_html (Thought _ _ u t (Just d)) = mconcat [ _a u (toHtmlRaw t)
+                                              , toHtml (" " :: String)
+                                              , toHtml d ]
 
 -- "zip" two lists into an ordered list, eliminating duplicates
 merge :: (Eq a, Ord a) => [a] -> [a] -> [a]
