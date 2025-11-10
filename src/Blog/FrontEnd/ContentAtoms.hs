@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Blog.FrontEnd.ContentAtoms ( heading, footer, divid, _a, _at
-                                  , stylesheet, base_url ) where
+                                  , stylesheet, base_url, urlEncode ) where
 
 import Lucid
 import qualified Data.Text as T
 import qualified Blog.Constants as C
 import qualified Blog.FrontEnd.Views as V
+import Network.URI (escapeURIString, isUnreserved)
 
 heading :: Html ()
 heading = divid "header" $ do
@@ -58,3 +59,6 @@ stylesheet = link_ [href_ (T.pack C.stylesheet_url), rel_ "stylesheet", type_ "t
 
 base_url :: Html ()
 base_url = base_ [href_ (T.pack C.base_url)]
+
+urlEncode :: String -> String
+urlEncode = escapeURIString isUnreserved

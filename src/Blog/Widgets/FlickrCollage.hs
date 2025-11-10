@@ -10,6 +10,7 @@ import System.Random
 
 import Network.HTTP.Client
 import Network.URI (URI, parseURI)
+import Network.HTTP.Types.Header (hAcceptCharset)
 import qualified Data.ByteString.Char8 as BS
 import Data.Maybe
 import Control.Concurrent.MVar
@@ -106,13 +107,13 @@ flickr_people_getPublicPhotos_req user api_key =
                                              , ("method","flickr.people.getPublicPhotos")
                                              , ("per_page",show photo_count)
                                              , ("user_id",user) ]
-    in (fromJust $ parseRequest url)
-       { requestHeaders = [(BS.pack "Accept-Charset", BS.pack "utf-8")] }
+    in (fromJust $ parseRequest (show url))
+       { requestHeaders = [(hAcceptCharset, BS.pack "utf-8")] }
 
 to_xhtml :: String -> FlickrPhoto -> Html ()
 to_xhtml user fp = _a (photo_page_url user fp) $
                    img_ [ src_ (T.pack $ image_url fp)
-                        , class_ "flickr_badge_image"
+                        , class_ (T.pack "flickr_badge_image")
                         , alt_ (T.pack $ photo_title fp) ]
 
 to_photo :: Value -> FlickrPhoto

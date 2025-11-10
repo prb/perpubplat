@@ -13,6 +13,7 @@ import qualified System.Log.Logger as L
 import Network.HTTP.Client
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Types.Status
+import Network.HTTP.Types.Header (hLocation)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import Data.Digest.Pure.MD5 (md5)
@@ -236,7 +237,7 @@ fetch_url_data url = do { L.infoM log_handle $ "Loading data for " ++ url
                             Right resp | statusCode (responseStatus resp) == 200 ->
                                 process_body $ LBS.unpack $ responseBody resp
                             Right resp | statusCode (responseStatus resp) `elem` [301, 302] ->
-                                do { let location = lookup (BS.pack "Location") (responseHeaders resp)
+                                do { let location = lookup hLocation (responseHeaders resp)
                                    ; L.infoM log_handle $ "Server returned a " ++ (show $ statusCode $ responseStatus resp)
                                                   ++ " with new location " ++ (maybe "" BS.unpack location)
                                    ; return Nothing }
