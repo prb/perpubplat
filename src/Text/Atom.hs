@@ -49,7 +49,7 @@ module Text.Atom (AtomElement( Feed,Entry,Content, Author,
                   ContentType(XHTML,TEXT),
                   toXml,feed_link,feed_link_alt, start_feed, end_feed) where
 
-import Lucid hiding (content_)
+import Lucid hiding (content_, with_)
 import qualified Lucid
 import qualified Data.Text as T
 import Data.Maybe

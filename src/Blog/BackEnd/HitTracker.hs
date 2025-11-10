@@ -14,7 +14,7 @@ import qualified System.Log.Logger as L
 
 data HitTracker = HitTracker { events :: CCC.Chan Request
                              , database_worker :: DatabaseWorker
-                             , hits :: ! (DM.Map String Int)
+                             , hits :: !(DM.Map String Int)
                              , tracker_tid :: CC.ThreadId }
 
 data Request = TallyHit { h_item :: Item }

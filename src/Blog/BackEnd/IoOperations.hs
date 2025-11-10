@@ -87,9 +87,9 @@ save :: B.Model -> B.Item -> IO Bool
 save m i = do { D.createDirectoryIfMissing True d
               ; writeFile f (B.to_string i)
               ; return True}
-           `SIE.catch`
+           `CE.catch`
            \e -> do { errorM log_handle $ "Unable to store item in path "
-                            ++ f ++ "; exception was: " ++ ( show e )
+                            ++ f ++ "; exception was: " ++ ( show (e :: CE.SomeException) )
                    ; return False }
     where
       d = C.content_storage_dir </> (B.ancestor_path m i)
