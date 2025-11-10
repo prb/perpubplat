@@ -1,56 +1,56 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Blog.Widgets.TagCloud ( boot
                              , update_model ) where
 
 import qualified Blog.Model.Entry as B
 import qualified Blog.FrontEnd.Urls as U
 import qualified Blog.Constants as C
-import Text.XHtml.Strict ( thespan, thestyle, Html, stringToHtml , (!), (<<),
-                           concatHtml, toHtml, hotlink, theclass, thediv, showHtmlFragment )
+import Lucid
+import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
 import Data.List ( maximum, group, sortBy, sort, intersperse ) 
 
 import qualified Blog.BackEnd.Holder as H
 
 boot :: B.Model -> IO (H.Holder String)
-boot m = H.newHolder $ showHtmlFragment $ tag_cloud (B.all_posts m) C.tags_to_show
+boot m = H.newHolder $ TL.unpack $ renderText $ tag_cloud (B.all_posts m) C.tags_to_show
 
 update_model :: (H.Holder String) -> B.Model -> IO ()
-update_model fh m = H.put fh $ showHtmlFragment $ tag_cloud (B.all_posts m) C.tags_to_show
+update_model fh m = H.put fh $ TL.unpack $ renderText $ tag_cloud (B.all_posts m) C.tags_to_show
 
-tag_cloud :: [B.Item] -> Int -> Html
+tag_cloud :: [B.Item] -> Int -> Html ()
 tag_cloud = tag_cloud_ . sort . concat . (map B.tags)
 
 d :: Int -> Double
 d = fromIntegral
 
-tag_cloud_ :: [String] -> Int -> Html
-tag_cloud_ ts n = thediv ! [ theclass "tagcloud" ]
-                  << ( concatHtml
-                       . (intersperse $ stringToHtml " ")
-                     $ map (tag_atom . tag_tuple) ts'' )
-    where
-      ts' = group ts
-      ts'' = take n $ (sortBy (flip $ snd >< compare) $ map (\y -> (head y, length y)) ts')
-      max_count = maximum $ map snd ts''
-      min_count = minimum $ map snd ts''
-      relative_color = if max_count == min_count then
-                           const "#7f7f7f"
-                       else 
-                           \y -> hotness ((d $ y - min_count) / (d $ max_count - min_count))
-      relative_size = if max_count == min_count then
-                          const 100
-                      else 
-                          \y -> 75 + ((75 * (y-min_count)) `div` (max_count - min_count))
-      tag_tuple = \(x,y) -> (x, relative_color y, y, relative_size y)
+tag_cloud_ :: [String] -> Int -> Html ()
+tag_cloud_ ts n = div_ [class_ "tagcloud"] $
+    mconcat $ intersperse (toHtml (" " :: String)) $
+        map (tag_atom . tag_tuple) ts''
+  where
+    ts' = group ts
+    ts'' = take n $ (sortBy (flip $ snd >< compare) $ map (\y -> (head y, length y)) ts')
+    max_count = maximum $ map snd ts''
+    min_count = minimum $ map snd ts''
+    relative_color = if max_count == min_count then
+                         const "#7f7f7f"
+                     else
+                         \y -> hotness ((d $ y - min_count) / (d $ max_count - min_count))
+    relative_size = if max_count == min_count then
+                        const 100
+                    else
+                        \y -> 75 + ((75 * (y-min_count)) `div` (max_count - min_count))
+    tag_tuple = \(x,y) -> (x, relative_color y, y, relative_size y)
 
 (><) :: (x -> y) -> (y -> y -> z) -> x -> x -> z
 (><) f g x1 x2 = g (f x1) (f x2)
 
-tag_atom :: (String, String, Int, Int) -> Html
-tag_atom (nm,c,n,sz) = thespan ( toHtml ( hotlink (U.posts_by_tag nm)
-                                          (stringToHtml $ (show n) ++ ":" ++ nm) )
-                                 ! [ thestyle $ "color: " ++ c ++ "; font-size: "
-                                     ++ (show sz) ++ "%"] )
-                       ! [ theclass "tagcloud" ]
+tag_atom :: (String, String, Int, Int) -> Html ()
+tag_atom (nm,c,n,sz) = span_ [class_ "tagcloud"] $
+    span_ [style_ (T.pack $ "color: " ++ c ++ "; font-size: " ++ (show sz) ++ "%")] $
+        a_ [href_ (T.pack $ U.posts_by_tag nm)] $
+            toHtml $ (show n) ++ ":" ++ nm
                             
 
 -- | Function to compute an HTML color value (three 0x00-0xFF hex digits

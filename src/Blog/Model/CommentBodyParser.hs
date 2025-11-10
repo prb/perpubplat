@@ -1,9 +1,12 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Blog.Model.CommentBodyParser where
 
 import Blog.FrontEnd.ContentAtoms
 
 import Text.ParserCombinators.Parsec
-import Text.XHtml.Strict
+import Lucid
+import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
 
 import Data.List (intersperse) 
 
@@ -14,29 +17,32 @@ data Block = Code { lines :: [String] }
            | Link { url :: String, text :: String }
              deriving ( Show, Eq, Ord )
 
-convert_comment_body :: String -> Html
+convert_comment_body :: String -> Html ()
 convert_comment_body s = case (parse parse_comment_body "<comment body>" s) of
-                           Left err ->
-                               concatHtml [ p . concatHtml $ [ bold << stringToHtml "Parsing Error: "
-                                                             , stringToHtml . show $ err ]
-                                          , pre << stringToHtml s ]
+                           Left err -> do
+                               p_ $ do
+                                   strong_ $ toHtml ("Parsing Error: " :: String)
+                                   toHtml $ show err
+                               pre_ $ toHtml s
                            Right b ->
                                blocks_to_xhtml b
 
 parse_comment :: String -> Either ParseError [Block]
 parse_comment = parse parse_comment_body "<internal>"
 
-blocks_to_xhtml :: [Block] -> Html
-blocks_to_xhtml b = concatHtml . (map render) $ collect_ b []
+blocks_to_xhtml :: [Block] -> Html ()
+blocks_to_xhtml b = mconcat $ map render $ collect_ b []
 
 blocks_to_string :: [Block] -> String
-blocks_to_string = showHtmlFragment . blocks_to_xhtml
+blocks_to_string = TL.unpack . renderText . blocks_to_xhtml
 
-render :: Block -> Html
-render (Code a) = ( pre ! [ theclass "code" ] ) . concatHtml . (intersperse (stringToHtml "\n")) . (map stringToHtml) $ a
-render (Quote a) = blockquote . concatHtml . (map ( p . stringToHtml )) $ a
-render (Paragraph a) = p . concatHtml . (map render) $ a
-render (Text a) = stringToHtml a
+render :: Block -> Html ()
+render (Code a) = pre_ [class_ "code"] $
+    mconcat $ intersperse (toHtml ("\n" :: String)) $ map toHtml a
+render (Quote a) = blockquote_ $
+    mconcat $ map (p_ . toHtml) a
+render (Paragraph a) = p_ $ mconcat $ map render a
+render (Text a) = toHtml a
 render (Link u t) = _at u t
 
 collect_ :: [Block] -> [Block] -> [Block]
