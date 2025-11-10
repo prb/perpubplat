@@ -22,7 +22,7 @@ import Control.Concurrent.MVar ( MVar, newMVar, newEmptyMVar, putMVar, takeMVar 
 import Control.Concurrent.Chan ( Chan, newChan,  writeChan, readChan )
 
 import System.Log.Logger
-import System.Time
+import qualified Data.Time.Clock as DTC
 
 log_handle :: String
 log_handle = "DraftManagement"
@@ -144,11 +144,11 @@ boot = do { infoM log_handle $ "Booting Queue from files on disk in "
           ; files <- getDirectoryContents C.drafts_dir
           ; let files' = (map (\x -> C.drafts_dir </> x)) . (filter is_filename) $ files
           ; files'' <- filterM (doesFileExist) files'
-          ; t1 <- getClockTime
+          ; t1 <- DTC.getCurrentTime
           ; comments <- mapM (load log_handle) files''
           ; let comments' = catMaybes comments
           ; let cnt = length comments'
-          ; t2 <- getClockTime
+          ; t2 <- DTC.getCurrentTime
           ; infoM log_handle $ "Loaded " ++ (show cnt) ++ " comments from disk in " ++
                   ( elapsed_hundreths t2 t1 ) ++ " seconds."
           ; case comments' of

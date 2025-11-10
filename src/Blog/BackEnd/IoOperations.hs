@@ -18,7 +18,7 @@ import System.FilePath ((</>), splitPath)
 import Control.Monad (filterM)
 import qualified Control.Exception as CE
 
-import System.Time (getClockTime)
+import qualified Data.Time.Clock as DTC
 import System.Log.Logger
 
 log_handle :: String
@@ -33,10 +33,10 @@ instance Show LoadError where
 
 -- | Load all posts from disk.
 boot :: IO B.Model
-boot = do { t1 <- getClockTime
+boot = do { t1 <- DTC.getCurrentTime
           ; all <- find_all is_content_file is_subdirectory C.content_storage_dir
           ; content <- mapM readFile' all
-          ; t2 <- getClockTime
+          ; t2 <- DTC.getCurrentTime
           ; infoM log_handle $ "Loaded " ++ (show $ length content) ++ " items (posts and comments) from "
                   ++ C.content_storage_dir ++ " in " ++ (elapsed_hundreths t2 t1) ++ " seconds."
           ; let loaded =  map (uncurry EP.item_from_string) $ zip all content

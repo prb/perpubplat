@@ -10,7 +10,7 @@ import Network.HTTP
 import Network.URI
 import Text.JSON
 import Data.Digest.Pure.MD5
-import List ( intersperse )
+import Data.List ( intersperse )
 
 import Control.Concurrent.MVar
 import Control.Concurrent.Chan
@@ -20,9 +20,7 @@ import qualified Data.Map as M
 import qualified Data.IntSet as S
 import Data.Maybe
 import qualified System.Posix as SP
-import qualified System.Posix.Time as SPT
-
-import Data.Time.Clock.POSIX as DTCP
+import qualified Data.Time.Clock.POSIX as DTCP
 
 import Blog.FrontEnd.ContentAtoms
 import Text.XHtml.Strict
@@ -88,16 +86,16 @@ data DeliciousRecord = DeliciousRecord { hash :: String
 
 data Scheduler = Scheduler { s_request_channel :: Chan SRequest
                            , s_tid :: ThreadId
-                           , next_actions :: [(SP.EpochTime,Int)]
+                           , next_actions :: [(DTCP.POSIXTime,Int)]
                            , d_con :: Controller
                            , active :: S.IntSet }
 
 data SRequest = UpdateModel { model :: B.Model }
-              | Trigger { go_time :: SP.EpochTime }
+              | Trigger { go_time :: DTCP.POSIXTime }
 
 boot_s :: Controller -> B.Model -> IO Scheduler
 boot_s dc m = do { c <- newChan
-                 ; e <- SPT.epochTime
+                 ; e <- DTCP.getPOSIXTime
                  ; let n_a = zip 
                              (map (\x -> e+(2*(fromIntegral x))) [1..(length $ B.all_posts m)])
                              (map B.internal_id $ B.all_posts m)
@@ -169,7 +167,7 @@ ffd_loop ffd = do { L.debugM log_handle "Waking up worker..."
                   ; ffd_loop ffd }
 
 fire :: Scheduler -> IO ()
-fire s = do { e <- SPT.epochTime
+fire s = do { e <- DTCP.getPOSIXTime
             ; writeChan (s_request_channel s) $ Trigger e }
 
 s_loop :: Scheduler -> B.Model -> IO ()
@@ -195,7 +193,7 @@ insert x xs = (fst p) ++ (x:(snd p))
     where
       p = span (\y -> y < x) xs
 
-update_and_reschedule :: Controller -> B.Model -> Int -> IO SP.EpochTime
+update_and_reschedule :: Controller -> B.Model -> Int -> IO DTCP.POSIXTime
 update_and_reschedule dc m i = do { let item = B.item_by_id m i
                                   ; age <- Ut.days_since $ B.created item
                                   ; mdr <- fetch_url_data $ B.permalink m item
@@ -206,8 +204,8 @@ update_and_reschedule dc m i = do { let item = B.item_by_id m i
                                           return ()
                                   ; next_time age}
 
-next_time :: Int -> IO SP.EpochTime
-next_time t = do { n <- SPT.epochTime
+next_time :: Int -> IO DTCP.POSIXTime
+next_time t = do { n <- DTCP.getPOSIXTime
                  ; return $ n + fromIntegral (60 * (t+1)) }
 
 url_fragment :: String
@@ -279,5 +277,5 @@ unescape_ s [] = reverse s
 unescape_ t ('\\':'\'':ss) = unescape_ ('\'':t) ss
 unescape_ t (s:ss) = unescape_ (s:t) ss
 
-format_posix_time :: SP.EpochTime -> String
+format_posix_time :: DTCP.POSIXTime -> String
 format_posix_time = show . DTCP.posixSecondsToUTCTime . realToFrac

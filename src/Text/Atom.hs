@@ -50,7 +50,7 @@ module Text.Atom (AtomElement( Feed,Entry,Content, Author,
                   toXml,feed_link,feed_link_alt, start_feed, end_feed) where
 
 import qualified Text.XHtml.Strict as X
-import Maybe
+import Data.Maybe
 
 {-
 This is the main data structure.  As-is, the structure makes no effort

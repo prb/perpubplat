@@ -23,7 +23,7 @@ import Control.Concurrent.MVar ( MVar, newMVar, newEmptyMVar, putMVar, takeMVar 
 import Control.Concurrent.Chan ( Chan, newChan,  writeChan, readChan )
 
 import System.Log.Logger
-import System.Time
+import qualified Data.Time.Clock as DTC
 
 log_handle :: String
 log_handle = "CommentQueue"
@@ -153,7 +153,7 @@ boot = do { infoM log_handle $ "Booting CommentQueue from files on disk in "
           ; files <- getDirectoryContents C.comment_dir
           ; let files' = (map (\x -> C.comment_dir </> x)) . (filter is_filename) $ files
           ; files'' <- filterM (doesFileExist) files'
-          ; t1 <- getClockTime
+          ; t1 <- DTC.getCurrentTime
           ; comments <- mapM (load log_handle) files''
           ; let comments' = rights comments
           ; let errors = lefts comments
@@ -161,7 +161,7 @@ boot = do { infoM log_handle $ "Booting CommentQueue from files on disk in "
                  ++ " comments form disk."
           ; log_load_errors_ log_handle errors 
           ; let cnt = length comments'
-          ; t2 <- getClockTime
+          ; t2 <- DTC.getCurrentTime
           ; infoM log_handle $ "Loaded " ++ (show cnt) ++ " comments from disk in " ++
                   ( elapsed_hundreths t2 t1 ) ++ " seconds."
           ; case comments' of

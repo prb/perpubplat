@@ -9,7 +9,7 @@ import Network.HTTP
 import Network.HTTP.Headers
 
 import qualified Control.Exception as E
-import System.Time
+import qualified Data.Time.Clock as DTC
 import Control.Concurrent ( ThreadId, threadDelay, killThread, forkIO, myThreadId )
 import Control.Concurrent.MVar ( MVar, readMVar, swapMVar, newMVar )
 import Control.Monad as CM
@@ -45,12 +45,12 @@ change_polling_frequency p d = do { o <- swapMVar (delay_holder p) $ d
 poller_loop :: HttpPoller -> Maybe String -> Maybe String -> IO ()
 poller_loop p me mlm =
     do { (e,lm,cont) <- 
-             do { ct_start <- getClockTime
+             do { ct_start <- DTC.getCurrentTime
                 ; let req = (add_maybe HdrIfNoneMatch me) . (add_maybe HdrIfModifiedSince mlm)
                             $ base_request p
                 ; L.debugM (name p) $ "Performing HTTP request " ++ (show req)
                 ; resp <- simpleHTTP req
-                ; ct_stop <- getClockTime
+                ; ct_stop <- DTC.getCurrentTime
                 ; L.infoM (name p) $ logtime (base_request p) ct_stop ct_start
                 ; case resp of
                     Left e ->
@@ -111,7 +111,7 @@ add_maybe :: HeaderName -> Maybe String -> StrRequest -> StrRequest
 add_maybe _ Nothing req = req
 add_maybe h (Just s) req = req { rqHeaders = (Header h s):(rqHeaders req) }
 
-logtime :: StrRequest -> ClockTime -> ClockTime -> String
+logtime :: StrRequest -> DTC.UTCTime -> DTC.UTCTime -> String
 logtime req ct_stop ct_start = "Took " ++ (elapsed_hundreths ct_stop ct_start) ++ " seconds to perform "
                                ++ (show . rqMethod $ req ) ++ " "
                                ++ (show . rqURI $ req )

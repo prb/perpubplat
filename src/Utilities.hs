@@ -7,16 +7,15 @@ module Utilities ( subst, hotness, readFile', now, format_time
 
 import qualified Data.Time.Calendar as C
 import qualified Data.Time.Format as DTF
+import qualified Data.Time.Clock.POSIX as POSIX
 import Text.ParserCombinators.Parsec as P
-import List
+import Data.List
 import System.IO
 import System.IO.Unsafe
 import Foreign
 import Data.Char
-import System.Time
 import qualified Data.Time.Clock as DTC
 import qualified Data.Map as M
-import qualified System.Locale as SL
 
 unr :: Either a b -> b
 unr (Right r) = r
@@ -153,38 +152,18 @@ lazySlurp fp ix len
        loop (len-1) p (chr (fromIntegral w):acc)
 
 now :: IO String
-now = do { x <- getClockTime
-         ; let d = toUTCTime x
-         ; return $ format_time d }
+now = do { utc <- DTC.getCurrentTime
+         ; return $ format_time utc }
 
-format_time :: CalendarTime -> String
-format_time d = concat [ yy d, "-", mm d, "-", dd d, "T"
-                       , hh d, ":", mmmm d, ":", ss d , "Z" ]
-
-yy :: CalendarTime -> String
-yy = show . ctYear
-
-mm :: CalendarTime -> String
-mm = zpad . show . (1+) . fromEnum . ctMonth
-
-dd :: CalendarTime -> String
-dd = zpad . show . ctDay
-
-hh :: CalendarTime -> String
-hh = zpad . show . ctHour
-
-mmmm :: CalendarTime -> String
-mmmm = zpad . show . ctMin
-
-ss :: CalendarTime -> String
-ss = zpad . show . ctSec
+format_time :: DTC.UTCTime -> String
+format_time = DTF.formatTime DTF.defaultTimeLocale "%Y-%m-%dT%H:%M:%SZ"
 
 days_since :: String -> IO Int
 days_since d = do { n <- now
                   ; return . fromInteger $ C.diffDays (toDay n) (toDay d) }
 
 iso8601toRfc1123 :: String -> String
-iso8601toRfc1123 = (flip (++) $ " GMT") . (DTF.formatTime SL.defaultTimeLocale rfc1123DateFormat) . iso8601toUTCTime
+iso8601toRfc1123 = (flip (++) $ " GMT") . (DTF.formatTime DTF.defaultTimeLocale rfc1123DateFormat) . iso8601toUTCTime
 
 iso8601toUTCTime :: String -> DTC.UTCTime
 iso8601toUTCTime ts = DTC.UTCTime (toDay ts) (toSecondsSinceMidnight ts)
@@ -285,14 +264,17 @@ short_month = P.choice $ map (\(n,s) -> (try . P.string $ s) >> return n)
               $ zip [1..12] [ "Jan", "Feb", "Mar", "Apr", "May", "Jun"
                             , "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" ]
 
-tenths_of_a_second :: TimeDiff -> String
-tenths_of_a_second (TimeDiff 0 0 0 0 m s p) = fmt $ show hundreths
+tenths_of_a_second :: DTC.NominalDiffTime -> String
+tenths_of_a_second diff = fmt $ show hundreths
     where
-      hundreths = 6000*m + 100*s + fromInteger ((p `div` (10^10)))
-tenths_of_a_second t = timeDiffToString t
+      totalSeconds = truncate diff :: Integer
+      picoseconds = truncate $ (diff - fromInteger totalSeconds) * 1e12
+      minutes = totalSeconds `div` 60
+      seconds = totalSeconds `mod` 60
+      hundreths = 6000 * minutes + 100 * seconds + (picoseconds `div` (10^10))
 
-elapsed_hundreths :: ClockTime -> ClockTime -> String
-elapsed_hundreths ct_stop ct_start = tenths_of_a_second $ diffClockTimes ct_stop ct_start
+elapsed_hundreths :: DTC.UTCTime -> DTC.UTCTime -> String
+elapsed_hundreths ct_stop ct_start = tenths_of_a_second $ DTC.diffUTCTime ct_stop ct_start
 
 fmt :: String -> String
 fmt s = (take l ps) ++ "." ++ ((drop l) ps)

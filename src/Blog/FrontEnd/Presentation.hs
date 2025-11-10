@@ -16,7 +16,7 @@ import qualified Blog.BackEnd.HitTracker as HitT
 import qualified Blog.Widgets.StreamOfConsciousness as SoC
 import qualified Codec.Binary.UTF8.String as UTF8
 
-import List
+import Data.List
 
 -- | Put the page together, including navigation at the top or bottom,
 -- stylesheet, feeds URLs, etc.
