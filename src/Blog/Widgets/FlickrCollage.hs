@@ -6,7 +6,7 @@ import Blog.BackEnd.HttpPoller
 
 import qualified System.Log.Logger as L
 
-import Random
+import System.Random
 
 import Network.HTTP.Client
 import qualified Data.ByteString.Char8 as BS
