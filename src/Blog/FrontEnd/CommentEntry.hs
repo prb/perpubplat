@@ -99,10 +99,9 @@ inp f r n v = p_ [class_ "comment_datum"] $ do
     input_ [ name_ (T.pack n)
            , class_ "datum_entry"
            , value_ (T.pack $ CF.value v) ]
-    if r then
-        span_ [class_ "required"] $ toHtml ("*" :: String)
-    else
-        mempty
+    if r
+        then span_ [class_ "required"] $ toHtml ("*" :: String)
+        else mempty
     toHtml (" " ++ f)
     case v of
         (CF.Field _ _ Nothing) ->

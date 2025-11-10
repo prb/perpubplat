@@ -3,12 +3,9 @@ module Blog.BackEnd.RefererStream where
 import qualified System.Log.Logger as L
 import qualified Blog.FrontEnd.Views as V
 import qualified Blog.Constants as C
-import qualified Control.Monad as CM
 import qualified Data.Map.Strict as DM
 import Data.List ( isPrefixOf )
 import Control.Concurrent
-import Control.Concurrent.Chan
-import Control.Concurrent.MVar
 
 data RefererStream = RefererStream { control :: Chan Request}
 

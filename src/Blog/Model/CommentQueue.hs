@@ -14,6 +14,7 @@ import Utilities
 
 import System.IO
 import qualified System.IO.Error as SIE
+import qualified Control.Exception as CE
 import System.FilePath ( (</>) )
 import System.Directory ( removeFile, getDirectoryContents, doesFileExist )
 import Data.List ( isPrefixOf )
@@ -190,7 +191,7 @@ delete_ cq idx = do { let cq' = cq { comments = M.delete idx (comments cq) }
                     ; let f = filename idx
                     ; exists <- doesFileExist f
                     ; when exists ((removeFile f)
-                                   `SIE.catch`
+                                   `CE.catch`
                                    (handle_error $"Unable to remove comment data file " ++ f ++ "."))
                     ; return cq' }
 
@@ -207,7 +208,7 @@ write_ i = do { let f = filename (B.internal_id i)
               ; do { h <- openFile f WriteMode
                    ; hPutStr h $ B.to_string i
                    ; hClose h }
-                `SIE.catch`
+                `CE.catch`
                 (handle_error $ "Unable to write comment data file " ++ f
                       ++ " to disk; this may result in data loss if the application is stopped"
                       ++ " before the comment is handled.")

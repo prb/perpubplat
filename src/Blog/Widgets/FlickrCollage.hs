@@ -9,11 +9,13 @@ import qualified System.Log.Logger as L
 import System.Random
 
 import Network.HTTP.Client
+import Network.URI (URI, parseURI)
 import qualified Data.ByteString.Char8 as BS
 import Data.Maybe
 import Control.Concurrent.MVar
 import Data.Char
 import Data.List
+import Data.Aeson (Value)
 
 import Lucid
 import qualified Data.Text as T
@@ -22,15 +24,15 @@ import qualified Data.Text.Lazy as TL
 log_handle :: String 
 log_handle = "FlickrCollage"
 
-build_collage :: FlickrPhotos -> IO Html
+build_collage :: FlickrPhotos -> IO (Html ())
 build_collage fp = do { images <- get_photos fp
-                      ; return $ ( divid "flickr_badge_uber_wrapper")
-                        . ( divid "flickr_badge_wrapper" )
-                        . concatHtml $ [ concatHtml . (map (to_xhtml $ flickr_user fp)) $ images
-                                       , flickr_link ] }
+                      ; return $ divid "flickr_badge_uber_wrapper"
+                        $ divid "flickr_badge_wrapper"
+                        $ mconcat [ mconcat $ map (to_xhtml $ flickr_user fp) images
+                                  , flickr_link ] }
 
-flickr_link :: Html
-flickr_link = primHtml $ "<a href=\"http://www.flickr.com\" id=\"flickr_www\">"
+flickr_link :: Html ()
+flickr_link = toHtmlRaw $ "<a href=\"http://www.flickr.com\" id=\"flickr_www\">"
               ++ "www.<strong style=\"color:#3993ff\">flick"
               ++ "<span style=\"color:#ff1c92\">r</span></strong>.com</a>"
 
@@ -107,12 +109,13 @@ flickr_people_getPublicPhotos_req user api_key =
     in (fromJust $ parseRequest url)
        { requestHeaders = [(BS.pack "Accept-Charset", BS.pack "utf-8")] }
 
-to_xhtml :: String -> FlickrPhoto -> Html
-to_xhtml user fp = _a (photo_page_url user fp) ( image ! [ src (image_url fp)
-                                               , theclass "flickr_badge_image"
-                                               , alt (photo_title fp) ] )
+to_xhtml :: String -> FlickrPhoto -> Html ()
+to_xhtml user fp = _a (photo_page_url user fp) $
+                   img_ [ src_ (T.pack $ image_url fp)
+                        , class_ "flickr_badge_image"
+                        , alt_ (T.pack $ photo_title fp) ]
 
-to_photo :: JSValue -> FlickrPhoto
+to_photo :: Value -> FlickrPhoto
 to_photo m = FlickrPhoto { photo_id = uns $ m </> "id"
                          , owner = uns $ m </> "owner"
                          , secret = uns $ m </> "secret"

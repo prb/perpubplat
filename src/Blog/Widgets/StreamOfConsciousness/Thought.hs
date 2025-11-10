@@ -33,7 +33,7 @@ instance Ord Thought where
                     && ((channel t1) <= (channel t2)) )
 
 thoughts_to_xhtml :: [Thought] -> String
-thoughts_to_xhtml = TL.unpack . renderText . div_ [id_ "thoughts"]
+thoughts_to_xhtml = TL.unpack . renderText . div_ [id_ (T.pack "thoughts")]
                     . traverse_thoughts "1970-01-01"
 
 traverse_thoughts :: String -> [Thought] -> Html ()
@@ -42,11 +42,11 @@ traverse_thoughts l_d (t:ts)
     = do mconcat [ if l_d `isPrefixOf` d then
                        mempty
                    else
-                       p_ [class_ "thought_group"] $ toHtml d
-                  , p_ [class_ "thought"] $ mconcat [ icon $ channel t
-                                                     , toHtml (" " :: String)
-                                                     , to_html t
-                                                     ]
+                       p_ [class_ (T.pack "thought_group")] $ toHtml d
+                  , p_ [class_ (T.pack "thought")] $ mconcat [ icon $ channel t
+                                                              , toHtml (" " :: String)
+                                                              , to_html t
+                                                              ]
                   ]
          traverse_thoughts d ts
       where
@@ -54,17 +54,18 @@ traverse_thoughts l_d (t:ts)
 
 to_html :: Thought -> Html ()
 to_html (Thought k d u t _) | k == TwitterTweet || k == TwitterReply || k == Identica
-                                      = mconcat [ _at u time
+                                      = mconcat [ _a u time
                                                 , toHtml (" " :: String)
                                                 , text ]
                           where
-                            wrap st content = span_ [class_ (T.pack st)] content
+                            wrap :: T.Text -> Html () -> Html ()
+                            wrap st content = span_ [class_ st] content
                             time_hunk = (take 9) . (drop 11)
-                            time = wrap "tweet_stamp" $ toHtml $ time_hunk d
-                            text = wrap "tweet_text" $ toHtmlRaw t
+                            time = wrap (T.pack "tweet_stamp") $ toHtml $ time_hunk d
+                            text = wrap (T.pack "tweet_text") $ toHtmlRaw t
 
-to_html (Thought _ _ u t Nothing) = _at u (toHtmlRaw t)
-to_html (Thought _ _ u t (Just d)) = mconcat [ _at u (toHtmlRaw t)
+to_html (Thought _ _ u t Nothing) = _a u (toHtmlRaw t)
+to_html (Thought _ _ u t (Just d)) = mconcat [ _a u (toHtmlRaw t)
                                               , toHtml (" " :: String)
                                               , toHtml d ]
 

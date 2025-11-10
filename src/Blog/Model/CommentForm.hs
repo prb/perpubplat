@@ -4,7 +4,6 @@ import qualified Blog.Model.Entry as B
 import qualified Blog.Model.CommentBodyParser as CBP
 import Utilities
 
-import Data.List (dropWhile)
 import Data.Char (isSpace) 
 
 data CommentForm = CommentForm { authorName :: Field 
