@@ -49,10 +49,10 @@ module Text.Atom (AtomElement( Feed,Entry,Content, Author,
                   ContentType(XHTML,TEXT),
                   toXml,feed_link,feed_link_alt, start_feed, end_feed) where
 
-import Lucid hiding (content_, with_)
 import qualified Lucid
 import qualified Data.Text as T
 import Data.Maybe
+import Lucid (Html, rel_, type_, href_, title_)
 
 {-
 This is the main data structure.  As-is, the structure makes no effort
