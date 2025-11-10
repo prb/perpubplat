@@ -4,7 +4,7 @@ import qualified System.Log.Logger as L
 import qualified Blog.FrontEnd.Views as V
 import qualified Blog.Constants as C
 import qualified Control.Monad as CM
-import qualified Data.Map as DM
+import qualified Data.Map.Strict as DM
 import Data.List ( isPrefixOf )
 import Control.Concurrent
 import Control.Concurrent.Chan
@@ -40,7 +40,7 @@ get_referers rs v = do { h <- newEmptyMVar
 
 add_referer :: Request -> Referers -> Referers
 add_referer (AddReferer v r) m | C.blog_root `isPrefixOf` r = m
-                               | v `DM.member` m = DM.adjust (DM.insertWith' (+) r 1) v m
+                               | v `DM.member` m = DM.adjust (DM.insertWith (+) r 1) v m
                                | otherwise = DM.insert v (DM.insert r 1 DM.empty) m
 
 referer_loop :: RefererStream -> Referers -> IO ()

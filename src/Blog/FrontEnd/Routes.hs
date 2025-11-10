@@ -8,7 +8,7 @@ module Blog.FrontEnd.Routes ( parse_uri
                             ) where
 
 import Text.ParserCombinators.Parsec
-import List (sort)
+import Data.List (sort)
 import qualified Blog.FrontEnd.Views as V
 import qualified Blog.FrontEnd.Feeds as F
 import qualified Blog.FrontEnd.Actions as A

@@ -22,7 +22,8 @@ Executable perpubplat
   http-client >= 0.5, http-client-tls >= 0.3, http-types >= 0.12,
   aeson >= 2.0, text >= 1.2, vector >= 0.12, scientific >= 0.3,
   lucid >= 2.9,
-  wai >= 3.2, warp >= 3.3, case-insensitive >= 1.2
+  wai >= 3.2, warp >= 3.3, case-insensitive >= 1.2,
+  random >= 1.2
  main-is:
   perpubplat.hs
  hs-source-dirs:

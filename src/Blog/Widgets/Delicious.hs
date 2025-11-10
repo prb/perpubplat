@@ -1,8 +1,12 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Blog.Widgets.Delicious where
 
 import qualified Blog.Model.Entry as B
 import qualified Utilities as Ut
 import Blog.Widgets.JsonUtilities
+import Data.Aeson (Value(..))
+import qualified Data.Vector as V
 
 import qualified System.Log.Logger as L
 
@@ -72,7 +76,7 @@ post_to_delicious url title = "http://del.icio.us/post?v=4&url=" ++ (urlEncode u
 strip = id
 
 url_for_bookmark :: DeliciousRecord -> String
-url_for_bookmark dr = "http://del.icio.us/url/" ++ ( hash dr )
+url_for_bookmark dr = "http://del.icio.us/url/" ++ hash dr
 
 delicious_img :: Html ()
 delicious_img = img_ [ src_ "http://images.del.icio.us/static/img/delicious.small.gif"
@@ -252,8 +256,8 @@ show_rc (x,y,z) = show $ (100 * x) + (10 * y) + z
 process_body :: String -> IO (Maybe DeliciousRecord)
 process_body body =
     case parse_utf8_json $ unescape body  of
-      Right (JSArray a) ->          
-          return $ Just (unpack_json a)
+      Right (Array a) ->
+          return $ Just (unpack_json $ V.toList a)
       Right _ ->
           do { L.errorM log_handle $ "JSON response did not contain an array at the top level."
              ; return Nothing }
@@ -261,15 +265,18 @@ process_body body =
           do { L.errorM log_handle $ "Error parsing JSON: " ++ err
              ; return Nothing }
 
-unpack_json :: [JSValue]  -> DeliciousRecord
+unpack_json :: [Value]  -> DeliciousRecord
 unpack_json [] = DeliciousRecord "" [] 0 ""
 unpack_json [o] = DeliciousRecord { hash = unsWithDefault "" $ o </> "hash"
                                   , top_tags = to_tag_list $ o </> "top_tags"
                                   , url = unsWithDefault "" $ o </> "url"
                                   , total_posts = unnWithDefault 0 $ o </> "total_posts" }
 
-to_tag_list :: JSValue -> [(String,Int)]
-to_tag_list (JSArray [JSObject o]) = (map (\(s,n) -> (s, unn n))) $ fromJSObject o
+to_tag_list :: Value -> [(String,Int)]
+to_tag_list (Array v) | V.length v == 1 =
+    case V.head v of
+        Object obj -> map (\(s,n) -> (s, unn n)) $ uno (Object obj)
+        _ -> []
 to_tag_list _ = []
 
 unescape :: String -> String
