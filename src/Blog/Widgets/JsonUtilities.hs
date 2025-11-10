@@ -2,15 +2,12 @@
 module Blog.Widgets.JsonUtilities where
 
 import Data.Aeson
-import Data.Aeson.Types (Parser)
 import qualified Data.Aeson.KeyMap as KM
 import qualified Data.Aeson.Key as K
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
-import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import qualified Data.Vector as V
-import Data.Scientific (Scientific, toRealFloat, toBoundedInteger)
+import Data.Scientific (toRealFloat, toBoundedInteger)
 import qualified Codec.Binary.UTF8.String as UTF8
 
 -- Parse UTF8-encoded JSON string

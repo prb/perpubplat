@@ -51,7 +51,6 @@ module Text.Atom (AtomElement( Feed,Entry,Content, Author,
 
 import qualified Lucid
 import qualified Data.Text as T
-import Data.Maybe
 import Lucid (Html, rel_, type_, href_, title_)
 
 {-

@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | Assemblage of functions for loading and saving an 'Item' from/to
 -- a file.  The storage system works on the assumption that a post is
 -- stored in a directory named for its permatitle and that comments
