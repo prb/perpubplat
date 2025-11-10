@@ -10,7 +10,7 @@ import qualified Data.Time.Format as DTF
 import qualified Data.Time.Clock.POSIX as POSIX
 import Text.ParserCombinators.Parsec as P
 import Data.List
-import System.IO
+import System.IO (Handle, IOMode(ReadMode), openFile, hFileSize, hGetBuf)
 import System.IO.Unsafe
 import Foreign
 import Data.Char
@@ -123,7 +123,7 @@ rgb_to_htmlcolor (a,b,c) = "#" ++ (hex!!(clip a))
     where
       clip = \x -> min (max x 0) 255
 
-
+readFile' :: FilePath -> IO String
 readFile' f = do
   h <- openFile f ReadMode
   s <- hFileSize h
