@@ -22,6 +22,7 @@ import qualified Data.Text.Lazy as TL
 import qualified Codec.Binary.Base64.String as B64
 
 import Blog.Widgets.JsonUtilities
+import Blog.FrontEnd.ContentAtoms (urlEncode)
 
 import Blog.BackEnd.HttpPoller
 
