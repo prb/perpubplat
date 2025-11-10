@@ -1,7 +1,7 @@
 module Blog.FrontEnd.Urls where
 
 import Blog.Constants as C
-import List (intersperse)
+import Data.List (intersperse)
 
 all_posts :: String
 all_posts = C.base_url ++ "/articles"
