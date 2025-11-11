@@ -1,8 +1,8 @@
 This file explains how to build perpubplat. This is not for the
 uninitiated or faint of heart, and I'll assume that you've got a good
-level of familiarity with Apache (or some other FastCGI container like
-lighttpd), Haskell, and standard *nix environments. (That said, what
-you don't know is probably readily available by Googling.)
+level of familiarity with Haskell, web servers, and standard *nix
+environments. (That said, what you don't know is probably readily
+available by Googling.)
 
 The "per" in perpubplat is for "personal", and I haven't gone out of
 my way to make perpubplat configurable or customizable beyond my
@@ -20,64 +20,114 @@ PREREQUISITES
 
 You will need:
 
-- GHC 6.8.3
+- GHC 9.12.2 (or compatible newer version)
 
-- cabal-install (0.5.2 or greater)
+- cabal-install (latest recommended)
 
-- FastCGI libraries, installed somewhere your linker will know how to
-  find them.  Download the source from http://www.fastcgi.com/
+The application now uses the Warp web server (via WAI) instead of
+FastCGI, so no external FastCGI libraries are required.
 
-I will track the latest released version of GHC, so expect a bump when
-new versions of GHC are released.
+Key dependencies (automatically handled by cabal):
+- aeson >= 2.0 (JSON parsing)
+- lucid >= 2.9 (HTML generation)
+- warp >= 3.3 (web server)
+- wai >= 3.2 (web application interface)
+- http-client >= 0.5 (HTTP client)
+- network-uri >= 2.6 (URI handling)
+
+See perpubplat.cabal for the complete list of dependencies.
 
 
 GETTING SOURCE
 
 The git repository for perpubplat is hosted at github:
 
-  http://github.com/prb/perpubplat
+  https://github.com/prb/perpubplat
 
 To clone the repository, do:
 
-  $ git clone git://github.com/prb/perpubplat.git
+  $ git clone https://github.com/prb/perpubplat.git
 
-Or you can ask github to make you a tarball.
+Or you can download a tarball from the releases page.
 
 
 CONFIGURING
 
 All of the relevant configuration parameters are in the Blog.Constants
-module in the perpubplat library.
+module in src/Blog/Constants.hs.
+
+Key settings to review:
+- blog_title, blog_tagline
+- base_url, blog_root
+- Data directories (entry_dir, draft_dir, comment_dir)
+- Port number (if you want to change from default)
 
 
 BUILDING
 
-The libraries and executables all build the standard cabal-install
-way, e.g.:
+The application builds using the standard cabal workflow:
 
   $ cd perpubplat
+  $ cabal update
+  $ cabal build
+
+This creates the perpubplat executable in:
+  dist-newstyle/build/<platform>/ghc-<version>/perpubplat-<version>/x/perpubplat/build/perpubplat/perpubplat
+
+For easier access, you can install it:
+
   $ cabal install
 
-This places the perpubplat.fcgi executable in ~/.cabal/bin. If you
-want the executable in a different location:
+This places the perpubplat executable in ~/.cabal/bin (or ~/.local/bin
+depending on your cabal configuration).
 
-  $ cd perpubplat
-  $ cabal install --prefix=/path/to/other/location
+If you want the executable in a different location:
+
+  $ cabal install --installdir=/path/to/install/location
 
 
 RUNNING
 
-Point your favorite FastCGI web container at perpubplat.fcgi.  Some
-help selecting and configuring a container is available from here:
+perpubplat now runs as a standalone web server using Warp:
 
-http://mult.ifario.us/p/wiring-haskell-into-a-fastcgi-web-server
+  $ perpubplat
 
-Some sample Apache2 configuration fragments are included in the
-repository.
+By default, it will start a web server on port 8000 (or whatever port
+is configured in Blog.Constants). The server will log to stdout/stderr.
 
-*** NB: It is critically important that only one perpubplat.fcgi
-process is running at a time, so configure the web container
-accordingly. ***
+You can run it in the background:
+
+  $ perpubplat > perpubplat.log 2>&1 &
+
+Or use a process manager like systemd, supervisor, or similar.
+
+For production deployments, you may want to:
+- Run behind a reverse proxy (nginx, Apache, etc.)
+- Use a process supervisor to ensure it stays running
+- Configure proper logging
+- Set up monitoring
+
+*** NB: It is critically important that only one perpubplat process
+is running at a time, as the application maintains in-memory state. ***
+
+
+REVERSE PROXY SETUP (Optional but Recommended)
+
+For production, run perpubplat behind nginx or Apache as a reverse proxy.
+
+Example nginx configuration:
+
+  server {
+      listen 80;
+      server_name yourblog.example.com;
+
+      location / {
+          proxy_pass http://localhost:8000;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      }
+  }
 
 
 BOOTSTRAPPING CONTENT
@@ -87,6 +137,22 @@ Bootstrapping content is explained in this blog post:
 	http://mult.ifario.us/p/hello-world-for-perpubplat
 
 
+MODERNIZATION NOTES
+
+This codebase has been modernized from GHC 6.8.3 (2008) to GHC 9.12.2
+(2025). Major changes include:
+
+- Migrated from FastCGI to Warp/WAI
+- Updated from Text.JSON to aeson for JSON handling
+- Migrated from Text.XHtml to lucid for HTML generation
+- Updated to modern network-uri, http-client, http-types libraries
+- Fixed all deprecated functions and updated to hierarchical modules
+- Updated time handling from old-time to Data.Time
+
+The application should now build cleanly on modern GHC versions.
+
+
 QUESTIONS / COMMENTS / IMPROVEMENTS
 
-Feel free to send me an email (prb@mult.ifario.us) or a patch!
+Feel free to send me an email (prb@mult.ifario.us) or open an issue
+on GitHub!
